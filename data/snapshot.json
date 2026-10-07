@@ -6,7 +6,8 @@
     "generatedAt": "2026-10-07T16:13:00+09:00",
     "nextReviewAt": "2026-10-08T08:45:00+09:00",
     "marketSession": "POST_CLOSE",
-    "disclaimer": "This snapshot is a prototype fixture, not live market data or investment advice."
+    "disclaimer": "This snapshot is a prototype fixture, not live market data or investment advice.",
+    "connectionArchitecture": "PRIVATE_BACKEND_REQUIRED"
   },
   "marketRegime": {
     "status": "NEUTRAL",
@@ -233,12 +234,12 @@
     {
       "label": "株価",
       "status": "DEMO",
-      "note": "固定スナップショット"
+      "note": "Private daily backend未接続"
     },
     {
       "label": "ローソク足",
       "status": "UNAVAILABLE",
-      "note": "実OHLC未接続"
+      "note": "接続後はJ-Quants実日足"
     },
     {
       "label": "決算・適時開示",
