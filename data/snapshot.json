@@ -228,5 +228,42 @@
       "targetLogic": "セクター相対強度と直近高値を基準に判断。",
       "riskReward": "PENDING"
     }
+  ],
+  "dataSources": [
+    {
+      "label": "株価",
+      "status": "DEMO",
+      "note": "固定スナップショット"
+    },
+    {
+      "label": "ローソク足",
+      "status": "UNAVAILABLE",
+      "note": "実OHLC未接続"
+    },
+    {
+      "label": "決算・適時開示",
+      "status": "DEMO",
+      "note": "前回分析の固定値"
+    },
+    {
+      "label": "PTS",
+      "status": "UNAVAILABLE",
+      "note": "データ源未接続"
+    },
+    {
+      "label": "米国市場",
+      "status": "PENDING",
+      "note": "夜間更新前"
+    },
+    {
+      "label": "日経先物",
+      "status": "PENDING",
+      "note": "寄り前更新予定"
+    },
+    {
+      "label": "為替",
+      "status": "PENDING",
+      "note": "ライブ源未接続"
+    }
   ]
 }
