@@ -52,11 +52,16 @@ const state = {
   gaps: loadGaps(),
   rankFilter: "ALL",
   sortMode: "trade",
-  fallbackUsed: false
+  fallbackUsed: false,
+  beginnerMode: localStorage.getItem("stockman-beginner-mode") !== "off"
 };
 
 const els = {
   modeBadge: document.querySelector("#modeBadge"),
+  uxModeButton: document.querySelector("#uxModeButton"),
+  beginnerGuide: document.querySelector("#beginnerGuide"),
+  termHelp: document.querySelector("#termHelp"),
+  dataSourceStatus: document.querySelector("#dataSourceStatus"),
   refreshButton: document.querySelector("#refreshButton"),
   marketSession: document.querySelector("#marketSession"),
   updatedAt: document.querySelector("#updatedAt"),
@@ -252,26 +257,30 @@ function renderCandidates() {
   els.candidateList.innerHTML = list.map(c => {
     const changeClass = c.changePct > 0 ? "positive" : c.changePct < 0 ? "negative" : "";
     const changeText = c.changePct === null || c.changePct === undefined ? "—" : `${c.changePct > 0 ? "+" : ""}${c.changePct}%`;
+    const decision = decisionState(c);
+    const predictionLabel = state.beginnerMode ? "上がりやすさ" : "Prediction";
+    const tradeLabel = state.beginnerMode ? "今の入りやすさ" : "Trade";
     return `
       <article class="candidate-card">
         <div class="rank-badge ${rankClass(c.displayRank)}">${escapeHtml(c.displayRank)}</div>
         <div class="stock-id">
           <strong>${escapeHtml(c.name)}</strong>
           <span>${escapeHtml(c.code)} · ¥${formatNumber(c.price)} · <span class="${changeClass}">${changeText}</span></span>
+          <div class="decision-chip decision-${decision.tone}">${escapeHtml(decision.label)}</div>
         </div>
         <div class="catalyst">
           <strong title="${escapeHtml(c.catalyst)}">${escapeHtml(c.catalyst)}</strong>
-          <small>${escapeHtml(c.freshness || "UNKNOWN")} · Gap simulator ${c.gap >= 0 ? "+" : ""}${c.gap}%</small>
+          <small>${state.beginnerMode ? escapeHtml(decision.detail) : `${escapeHtml(c.freshness || "UNKNOWN")} · Gap simulator ${c.gap >= 0 ? "+" : ""}${c.gap}%`}</small>
         </div>
         <div class="score-block prediction">
-          <small>Prediction</small>
+          <small>${predictionLabel}</small>
           <strong>${c.predictionScore}</strong>
         </div>
         <div class="score-block trade">
-          <small>Trade</small>
+          <small>${tradeLabel}</small>
           <strong>${c.tradeScore}</strong>
         </div>
-        <button class="button button-secondary details-button" data-detail="${escapeHtml(c.code)}" type="button">Details</button>
+        <button class="button button-secondary details-button" data-detail="${escapeHtml(c.code)}" type="button">${state.beginnerMode ? "なぜ？ / 入り方" : "Details"}</button>
       </article>
     `;
   }).join("");
@@ -350,13 +359,15 @@ function openDetail(code) {
       <p class="muted">${escapeHtml(c.catalyst)}</p>
     </div>
 
+    ${chartSection(c)}
+
     <div class="detail-score-row">
       <div class="metric-card">
-        <small>Prediction</small>
+        <small>${state.beginnerMode ? "上がりやすさ" : "Prediction"}</small>
         <strong>${c.predictionScore}</strong>
       </div>
       <div class="metric-card">
-        <small>Trade</small>
+        <small>${state.beginnerMode ? "今の入りやすさ" : "Trade"}</small>
         <strong class="positive">${tradeScore}</strong>
       </div>
       <div class="metric-card">
@@ -383,6 +394,8 @@ function openDetail(code) {
       </section>
     </div>
 
+    ${beginnerEntryMap(c)}
+
     <div class="trade-plan">
       <div class="plan-row"><small>Entry condition</small><p>${escapeHtml(safeText(c.entryCondition))}</p></div>
       <div class="plan-row"><small>Invalidation</small><p>${escapeHtml(safeText(c.invalidation))}</p></div>
@@ -396,6 +409,184 @@ function openDetail(code) {
   }
 }
 
+
+const glossary = {
+  "地合い": "市場全体が上がりやすいか、下がりやすいかという“相場の空気”です。",
+  "GU": "ギャップアップ。前日の終値より高い価格から始まること。高すぎると高値づかみの危険もあります。",
+  "VWAP": "その日の平均的な売買価格の目安。株価がVWAPより上を保てるかを見ることがあります。",
+  "出来高": "売買された株数。増えているほど、その値動きに参加している人が多いと考えられます。",
+  "モメンタム": "株価の勢い。短期間で強く上がっているか、失速しているかを見る考え方です。",
+  "相対強度": "日経平均や同業株より、その銘柄が強く動いているかを見る考え方です。",
+  "PTS": "取引所の通常時間外に株を売買できる私設市場です。翌日の反応を見る参考になります。",
+  "SOX": "米国の主要半導体株で作る指数。日本の半導体株を見る時の参考になります。",
+  "損切り": "予想が外れた時、損失を大きくしないために手仕舞うルールです。",
+  "利確": "含み益が出ている状態で売り、利益を確定することです。",
+  "ブレイクアウト": "直近の高値など重要な価格を、勢いを伴って上抜く動きです。",
+  "押し目": "上昇中の銘柄が一時的に下がる場面。再上昇を確認して入る考え方があります。"
+};
+
+function decisionState(candidate) {
+  const gap = Number(state.gaps[candidate.code] ?? 0);
+  const score = adjustedTradeScore(candidate);
+  const rank = rankFromScore(score, gap);
+  if (rank === "NO TRADE") {
+    return { label: "見送り", detail: "今は条件が崩れているため、無理に入らない判断を優先します。", tone: "stop" };
+  }
+  if (gap >= 10) {
+    return { label: "上がりすぎ注意・待つ", detail: "材料は強くても、寄り付きが高すぎると高値づかみの危険が増えます。", tone: "wait" };
+  }
+  if (score >= 80) {
+    return { label: "寄り後の確認待ち", detail: "候補は強め。寄り後に買いが続くか、平均価格帯を保てるかを確認します。", tone: "ready" };
+  }
+  if (score >= 70) {
+    return { label: "押し目・高値更新を確認", detail: "良い候補ですが、すぐ追わず、反発または高値更新の確認を待ちます。", tone: "watch" };
+  }
+  return { label: "監視のみ", detail: "現時点では決め手が弱め。条件が改善するまで監視に留めます。", tone: "watch" };
+}
+
+function statusLabel(status) {
+  const map = {
+    LIVE: "LIVE",
+    DELAYED_15M: "15分遅れ",
+    DAILY: "日次",
+    DEMO: "DEMO",
+    PENDING: "未確定",
+    UNAVAILABLE: "未接続",
+    RECENT: "最新付近"
+  };
+  return map[status] || status || "未接続";
+}
+
+function renderDataSources() {
+  if (!els.dataSourceStatus) return;
+  const sources = state.data.dataSources || [
+    {label:"株価",status:"DEMO"},
+    {label:"ローソク足",status:"UNAVAILABLE"},
+    {label:"決算・適時開示",status:"DEMO"},
+    {label:"PTS",status:"UNAVAILABLE"},
+    {label:"米国市場",status:"PENDING"},
+    {label:"日経先物",status:"PENDING"},
+    {label:"為替",status:"PENDING"}
+  ];
+  els.dataSourceStatus.innerHTML = sources.map(source => `
+    <div class="data-source-item">
+      <span>${escapeHtml(source.label)}</span>
+      <strong class="source-${String(source.status || "UNAVAILABLE").toLowerCase()}">${escapeHtml(statusLabel(source.status))}</strong>
+      <small>${escapeHtml(source.note || "")}</small>
+    </div>`).join("");
+}
+
+function applyUxMode() {
+  document.body.classList.toggle("beginner-mode", state.beginnerMode);
+  document.body.classList.toggle("pro-mode", !state.beginnerMode);
+  if (els.uxModeButton) {
+    els.uxModeButton.textContent = state.beginnerMode ? "はじめてモード ON" : "Proモード";
+    els.uxModeButton.setAttribute("aria-pressed", String(state.beginnerMode));
+  }
+  if (els.beginnerGuide) els.beginnerGuide.classList.toggle("hidden", !state.beginnerMode);
+  const marketTitle = document.querySelector(".market-panel h2");
+  const thesisTitle = document.querySelector(".thesis-panel h2");
+  if (marketTitle) marketTitle.textContent = state.beginnerMode ? "今日の相場の雰囲気" : "地合い";
+  if (thesisTitle) thesisTitle.textContent = state.beginnerMode ? "上がりやすさと、入りやすさは別" : "Prediction ≠ Trade";
+}
+
+function tutorialChartSvg() {
+  const sample = [
+    {o:44,h:50,l:41,c:48},
+    {o:48,h:53,l:46,c:51},
+    {o:51,h:52,l:45,c:47},
+    {o:47,h:56,l:46,c:54},
+    {o:54,h:62,l:52,c:59},
+    {o:59,h:63,l:55,c:57},
+    {o:57,h:66,l:56,c:64}
+  ];
+  const min = 40, max = 68, width = 620, height = 220, pad = 26;
+  const scaleY = v => pad + (max-v)/(max-min)*(height-pad*2);
+  const gap = (width-pad*2)/sample.length;
+  const candles = sample.map((d,i)=>{
+    const x=pad+i*gap+gap/2;
+    const up=d.c>=d.o;
+    const yOpen=scaleY(d.o), yClose=scaleY(d.c), yHigh=scaleY(d.h), yLow=scaleY(d.l);
+    const y=Math.min(yOpen,yClose), h=Math.max(3,Math.abs(yClose-yOpen));
+    const cls=up?"tutorial-up":"tutorial-down";
+    return `<line x1="${x}" x2="${x}" y1="${yHigh}" y2="${yLow}" class="${cls} wick"/>
+      <rect x="${x-10}" y="${y}" width="20" height="${h}" rx="2" class="${cls}"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 620 220" class="candle-svg" role="img" aria-label="学習用ローソク足サンプル">
+    <line x1="26" x2="594" y1="${scaleY(55)}" y2="${scaleY(55)}" class="entry-line"/>
+    <text x="590" y="${scaleY(55)-6}" text-anchor="end" class="chart-label">確認ラインの例</text>
+    ${candles}
+    <text x="310" y="28" text-anchor="middle" class="tutorial-watermark">学習用サンプル — 実価格ではありません</text>
+  </svg>`;
+}
+
+function realCandleSvg(candles) {
+  if (!Array.isArray(candles) || candles.length < 2) return "";
+  const data = candles.slice(-40);
+  const lows=data.map(d=>Number(d.low)).filter(Number.isFinite);
+  const highs=data.map(d=>Number(d.high)).filter(Number.isFinite);
+  if (!lows.length || !highs.length) return "";
+  const min=Math.min(...lows), max=Math.max(...highs);
+  const range=Math.max(0.0001,max-min);
+  const width=620,height=250,pad=30;
+  const scaleY=v=>pad+(max-v)/range*(height-pad*2);
+  const gap=(width-pad*2)/data.length;
+  const bodyW=Math.max(3,Math.min(12,gap*.55));
+  const nodes=data.map((d,i)=>{
+    const o=Number(d.open),h=Number(d.high),l=Number(d.low),c=Number(d.close);
+    if (![o,h,l,c].every(Number.isFinite)) return "";
+    const x=pad+i*gap+gap/2, up=c>=o;
+    const yo=scaleY(o),yc=scaleY(c),yh=scaleY(h),yl=scaleY(l);
+    const y=Math.min(yo,yc), bh=Math.max(2,Math.abs(yc-yo));
+    const cls=up?"real-up":"real-down";
+    return `<line x1="${x}" x2="${x}" y1="${yh}" y2="${yl}" class="${cls} wick"/><rect x="${x-bodyW/2}" y="${y}" width="${bodyW}" height="${bh}" rx="1" class="${cls}"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 620 250" class="candle-svg" role="img" aria-label="実価格ローソク足">${nodes}</svg>`;
+}
+
+function chartSection(candidate) {
+  const hasReal = Array.isArray(candidate.candles) && candidate.candles.length >= 2;
+  return `
+    <section class="chart-card">
+      <div class="chart-head">
+        <div>
+          <small>PRICE ACTION</small>
+          <strong>ローソク足</strong>
+        </div>
+        <span class="pill ${hasReal ? "" : "pill-demo"}">${hasReal ? "DATA" : "学習用"}</span>
+      </div>
+      <div class="chart-frame">
+        ${hasReal ? realCandleSvg(candidate.candles) : tutorialChartSvg()}
+      </div>
+      <p class="chart-note">${hasReal
+        ? "実OHLCデータを描画しています。今後VWAP・出来高・支持帯を重ねます。"
+        : "実価格データはまだ接続していません。この図はローソク足の読み方を理解するための見本です。選択中の銘柄の値動きではありません。"}</p>
+    </section>`;
+}
+
+function beginnerEntryMap(candidate) {
+  const gap = Number(state.gaps[candidate.code] ?? 0);
+  const decision = decisionState(candidate);
+  return `
+    <section class="entry-map">
+      <div class="entry-map-title">
+        <small>ENTRY MAP</small>
+        <strong>どうなったら次の判断へ進む？</strong>
+      </div>
+      <div class="entry-current ${decision.tone}">
+        <span>現在</span>
+        <b>${escapeHtml(decision.label)}</b>
+        <p>${escapeHtml(decision.detail)}</p>
+      </div>
+      <div class="entry-steps">
+        <div><span>①</span><p><b>寄り付きが高すぎない</b><small>現在の入力: ${gap >= 0 ? "+" : ""}${gap}%</small></p></div>
+        <div><span>②</span><p><b>寄り後も買いが続く</b><small>VWAP・出来高を確認</small></p></div>
+        <div><span>③</span><p><b>高値更新か押し目反発を確認</b><small>勢いを確認してから候補継続</small></p></div>
+        <div><span>×</span><p><b>予想が崩れたら見送る</b><small>${escapeHtml(safeText(candidate.invalidation))}</small></p></div>
+      </div>
+    </section>`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&","&amp;")
@@ -407,8 +598,10 @@ function escapeHtml(value) {
 
 function renderAll() {
   if (!state.data) return;
+  applyUxMode();
   renderMeta();
   renderMarket();
+  renderDataSources();
   renderCandidates();
   renderSimulator();
 }
@@ -424,6 +617,21 @@ els.sortMode.addEventListener("change", event => {
 });
 
 els.refreshButton.addEventListener("click", () => loadSnapshot(true));
+
+if (els.uxModeButton) {
+  els.uxModeButton.addEventListener("click", () => {
+    state.beginnerMode = !state.beginnerMode;
+    localStorage.setItem("stockman-beginner-mode", state.beginnerMode ? "on" : "off");
+    renderAll();
+  });
+}
+
+document.querySelectorAll("[data-term]").forEach(button => {
+  button.addEventListener("click", () => {
+    const term = button.dataset.term;
+    if (els.termHelp) els.termHelp.innerHTML = `<strong>${escapeHtml(term)}</strong> — ${escapeHtml(glossary[term] || "説明を準備中です。")}`;
+  });
+});
 
 els.resetSimulator.addEventListener("click", () => {
   state.gaps = {};
