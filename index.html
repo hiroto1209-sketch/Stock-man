@@ -20,6 +20,7 @@
       </span>
     </a>
     <div class="topbar-actions">
+      <button id="uxModeButton" class="pill mode-toggle" type="button" aria-pressed="true">はじめてモード ON</button>
       <span id="modeBadge" class="pill pill-demo">DEMO</span>
       <button id="refreshButton" class="button button-secondary" type="button">Refresh snapshot</button>
     </div>
@@ -57,6 +58,54 @@
     </section>
 
     <section id="freshnessBanner" class="banner hidden" role="status"></section>
+
+    <section id="beginnerGuide" class="panel beginner-guide">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">60-SECOND GUIDE</p>
+          <h2>まず、この3つだけ見ればOK</h2>
+        </div>
+        <span class="pill">BEGINNER</span>
+      </div>
+      <div class="guide-steps">
+        <article>
+          <span>STEP 1</span>
+          <strong>相場全体を見る</strong>
+          <p>「今日の相場の雰囲気」が悪ければ、無理に取引しない。</p>
+        </article>
+        <article>
+          <span>STEP 2</span>
+          <strong>候補を見る</strong>
+          <p>「上がりやすさ」が高い銘柄と、その理由を確認する。</p>
+        </article>
+        <article>
+          <span>STEP 3</span>
+          <strong>入り方を見る</strong>
+          <p>「今の入りやすさ」と“待つ条件”を確認してから判断する。</p>
+        </article>
+      </div>
+      <div class="glossary-strip" aria-label="用語ヘルプ">
+        <button data-term="地合い">地合い ?</button>
+        <button data-term="GU">GU ?</button>
+        <button data-term="VWAP">VWAP ?</button>
+        <button data-term="出来高">出来高 ?</button>
+        <button data-term="PTS">PTS ?</button>
+        <button data-term="SOX">SOX ?</button>
+      </div>
+      <div id="termHelp" class="term-help">分からない言葉をタップすると、ここに簡単な説明が出ます。</div>
+    </section>
+
+    <section class="panel data-center">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">DATA STATUS</p>
+          <h2>この情報は今どこまで新しい？</h2>
+        </div>
+        <span class="pill">IMPORTANT</span>
+      </div>
+      <p class="muted">「LIVE」「15分遅れ」「日次」「DEMO」を区別します。緑色だから全部リアルタイム、という表示にはしません。</p>
+      <div id="dataSourceStatus" class="data-source-grid"></div>
+    </section>
 
     <section class="grid-two">
       <article class="panel market-panel">
