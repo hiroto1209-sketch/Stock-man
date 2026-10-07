@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/live-data.js": {
+      "maxDuration": 15
+    }
+  }
+}
