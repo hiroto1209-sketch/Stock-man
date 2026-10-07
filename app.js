@@ -84,6 +84,9 @@ const els = {
   nextReviewAt: document.querySelector("#nextReviewAt"),
   freshnessStatus: document.querySelector("#freshnessStatus"),
   freshnessBanner: document.querySelector("#freshnessBanner"),
+  tradeReadiness: document.querySelector("#tradeReadiness"),
+  tradeReadinessLabel: document.querySelector("#tradeReadinessLabel"),
+  tradeReadinessMessage: document.querySelector("#tradeReadinessMessage"),
   regimeStatus: document.querySelector("#regimeStatus"),
   regimeScore: document.querySelector("#regimeScore"),
   regimeNote: document.querySelector("#regimeNote"),
@@ -713,6 +716,40 @@ function statusLabel(status) {
   return map[status] || status || "未接続";
 }
 
+
+function renderTradeReadiness() {
+  if (!els.tradeReadiness) return;
+
+  let level = "OFF";
+  let tone = "off";
+  let message = "DEMOまたは重要データ未接続。実取引判断には使用しないでください。";
+
+  if (state.livePayload?.usableForNextDayDecision) {
+    level = "DAILY READY";
+    tone = "daily";
+    message = "最新の日足は確認済み。ただし寄り付き・場中の現在値ではありません。発注前に証券アプリで現在値、板、スプレッドを必ず確認してください。";
+
+    const sources = state.data?.dataSources || [];
+    const lookup = Object.fromEntries(sources.map(s => [s.label, s.status]));
+    const premarketOk =
+      ["PTS","日経先物","為替"].every(name => ["LIVE","RECENT"].includes(lookup[name]));
+
+    if (premarketOk) {
+      level = "PREMARKET READY";
+      tone = "premarket";
+      message = "日足と主要な寄り前情報を確認済み。それでも最終発注前に証券アプリの現在値・板を確認してください。";
+    }
+  } else if (state.livePayload && !state.livePayload.usableForNextDayDecision) {
+    level = "STALE";
+    tone = "stale";
+    message = "API接続済みですがデータが古いため、翌営業日の取引判断には使用しません。";
+  }
+
+  els.tradeReadiness.className = "trade-readiness readiness-" + tone;
+  els.tradeReadinessLabel.textContent = level;
+  els.tradeReadinessMessage.textContent = message;
+}
+
 function renderDataSources() {
   if (!els.dataSourceStatus) return;
   const sources = state.data.dataSources || [
@@ -857,6 +894,7 @@ function renderAll() {
   applyUxMode();
   renderMeta();
   renderMarket();
+  renderTradeReadiness();
   renderDataSources();
   renderCandidates();
   renderSimulator();
