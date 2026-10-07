@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090c10" />
+  <meta name="description" content="Stock man — 日本株の翌営業日候補をPrediction ScoreとTrade Scoreで評価する分析ダッシュボード" />
+  <title>Stock man — Next Session Intelligence</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Stock man home">
+      <span class="brand-mark">S</span>
+      <span>
+        <strong>Stock man</strong>
+        <small>Next Session Intelligence</small>
+      </span>
+    </a>
+    <div class="topbar-actions">
+      <span id="modeBadge" class="pill pill-demo">DEMO</span>
+      <button id="refreshButton" class="button button-secondary" type="button">Refresh snapshot</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">TOMORROW'S EDGE, WITHOUT FORCING A TRADE</p>
+        <h1>上がりそう、だけでは<br><span>買わない。</span></h1>
+        <p class="hero-copy">
+          材料・モメンタム・出来高・相対強度・需給・地合いを統合し、
+          「上昇しそう」と「今この価格で入る価値がある」を分けて評価します。
+        </p>
+      </div>
+
+      <div class="hero-status glass">
+        <div class="status-row">
+          <span>Analysis phase</span>
+          <strong id="marketSession">—</strong>
+        </div>
+        <div class="status-row">
+          <span>Last updated</span>
+          <strong id="updatedAt">—</strong>
+        </div>
+        <div class="status-row">
+          <span>Next review</span>
+          <strong id="nextReviewAt">—</strong>
+        </div>
+        <div class="status-row">
+          <span>Freshness</span>
+          <strong id="freshnessStatus">—</strong>
+        </div>
+      </div>
+    </section>
+
+    <section id="freshnessBanner" class="banner hidden" role="status"></section>
+
+    <section class="grid-two">
+      <article class="panel market-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">MARKET REGIME</p>
+            <h2>地合い</h2>
+          </div>
+          <div class="regime-score">
+            <span id="regimeStatus">—</span>
+            <strong id="regimeScore">—</strong>
+          </div>
+        </div>
+        <p id="regimeNote" class="muted"></p>
+        <div id="marketIndicators" class="indicator-grid"></div>
+      </article>
+
+      <article class="panel thesis-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">DECISION MODEL</p>
+            <h2>Prediction ≠ Trade</h2>
+          </div>
+        </div>
+        <div class="equation">
+          <div>
+            <small>Prediction Score</small>
+            <strong>材料 × 強さ</strong>
+          </div>
+          <span>→</span>
+          <div>
+            <small>Entry adjustment</small>
+            <strong>GU / 需給 / 確認</strong>
+          </div>
+          <span>→</span>
+          <div>
+            <small>Trade Score</small>
+            <strong>今、入る価値</strong>
+          </div>
+        </div>
+        <p class="muted">
+          予想が当たっていても、寄り付きが過熱していれば見送る。
+          Stock man は <b>NO TRADE</b> を正解として扱います。
+        </p>
+      </article>
+    </section>
+
+    <section class="rankings-section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">NEXT SESSION RANKING</p>
+          <h2>候補ランキング</h2>
+        </div>
+        <div class="toolbar">
+          <label>
+            Rank
+            <select id="rankFilter">
+              <option value="ALL">ALL</option>
+              <option value="S">S</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="NO TRADE">NO TRADE</option>
+            </select>
+          </label>
+          <label>
+            Sort
+            <select id="sortMode">
+              <option value="trade">Trade Score</option>
+              <option value="prediction">Prediction Score</option>
+              <option value="code">Code</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div id="candidateList" class="candidate-list" aria-live="polite"></div>
+    </section>
+
+    <section class="simulator panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">PRE-MARKET SIMULATOR</p>
+          <h2>寄り前ギャップを入れて再判定</h2>
+        </div>
+        <button id="resetSimulator" class="button button-secondary" type="button">Reset</button>
+      </div>
+      <p class="muted">
+        予想スコアはそのままでも、GUが大きいほどエントリー期待値は下がります。
+        マイナスギャップは自動加点しません。
+      </p>
+      <div id="simulatorList" class="simulator-list"></div>
+    </section>
+
+    <section class="panel audit-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">AUDIT READY</p>
+          <h2>的中率を後から書き換えない</h2>
+        </div>
+        <span class="pill">ROADMAP</span>
+      </div>
+      <div class="audit-grid">
+        <div><strong>01</strong><span>寄り前スナップショット保存</span></div>
+        <div><strong>02</strong><span>始値・高値・安値・終値を記録</span></div>
+        <div><strong>03</strong><span>Sランク勝率・平均値幅を計測</span></div>
+        <div><strong>04</strong><span>モデルバージョン別に検証</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Stock man is an analytical prototype. It does not guarantee future prices or investment results.
+      Demo data must not be treated as live market data.
+    </p>
+  </footer>
+
+  <dialog id="detailDialog">
+    <div class="dialog-shell">
+      <button id="closeDialog" class="dialog-close" aria-label="Close">×</button>
+      <div id="detailContent"></div>
+    </div>
+  </dialog>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
