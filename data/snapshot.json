@@ -1,0 +1,232 @@
+{
+  "meta": {
+    "product": "Stock man",
+    "mode": "DEMO",
+    "snapshotType": "ANALYSIS_FIXTURE",
+    "generatedAt": "2026-10-07T16:13:00+09:00",
+    "nextReviewAt": "2026-10-08T08:45:00+09:00",
+    "marketSession": "POST_CLOSE",
+    "disclaimer": "This snapshot is a prototype fixture, not live market data or investment advice."
+  },
+  "marketRegime": {
+    "status": "NEUTRAL",
+    "score": 54,
+    "confidence": "LOW",
+    "note": "米国市場・SOX・日経先物の夜間確定前。翌朝8:45の再判定を前提とする。",
+    "indicators": [
+      {
+        "name": "Nikkei 225",
+        "value": null,
+        "state": "PENDING"
+      },
+      {
+        "name": "TOPIX",
+        "value": null,
+        "state": "PENDING"
+      },
+      {
+        "name": "Nikkei Futures",
+        "value": null,
+        "state": "PENDING"
+      },
+      {
+        "name": "NASDAQ",
+        "value": null,
+        "state": "PENDING"
+      },
+      {
+        "name": "SOX",
+        "value": null,
+        "state": "PENDING"
+      },
+      {
+        "name": "VIX",
+        "value": null,
+        "state": "PENDING"
+      },
+      {
+        "name": "USD/JPY",
+        "value": null,
+        "state": "PENDING"
+      }
+    ]
+  },
+  "weights": {
+    "catalyst": 0.3,
+    "momentum": 0.2,
+    "volume": 0.15,
+    "relativeStrength": 0.15,
+    "orderFlow": 0.1,
+    "marketRegime": 0.1
+  },
+  "candidates": [
+    {
+      "code": "3723",
+      "name": "日本ファルコム",
+      "exchange": "TSE",
+      "rank": "S",
+      "predictionScore": 86,
+      "price": 2600,
+      "changePct": 0.54,
+      "catalyst": "引け後の大幅上方修正＋大幅増配",
+      "freshness": "RECENT",
+      "dataUpdatedAt": "2026-10-07T16:13:00+09:00",
+      "components": {
+        "catalyst": 98,
+        "momentum": 82,
+        "volume": 78,
+        "relativeStrength": 85,
+        "orderFlow": 80,
+        "marketRegime": 54
+      },
+      "whyBuy": [
+        "経常利益予想の大幅上方修正",
+        "期末配当の大幅増額",
+        "引け後発表で通常取引時間への織り込みが限定的"
+      ],
+      "whyNotBuy": [
+        "小型株で値動きが大きくなりやすい",
+        "大幅GU時は寄り天・材料出尽くしリスク",
+        "流動性と気配の確認が必要"
+      ],
+      "entryCondition": "寄り付きのGUが過熱していないこと。寄り後はVWAP維持または押し目の反発確認を優先。",
+      "invalidation": "大幅GU後に寄り値・VWAPを明確に割り込み、買いが続かない場合。",
+      "targetLogic": "固定値ではなく、初動高値・ATR・出来高の継続性で判断。",
+      "riskReward": "PENDING"
+    },
+    {
+      "code": "2670",
+      "name": "ABCマート",
+      "exchange": "TSE",
+      "rank": "A",
+      "predictionScore": 74,
+      "price": 2785.5,
+      "changePct": 0,
+      "catalyst": "通期経常利益を上方修正、最高益予想を上乗せ",
+      "freshness": "RECENT",
+      "dataUpdatedAt": "2026-10-07T16:13:00+09:00",
+      "components": {
+        "catalyst": 86,
+        "momentum": 72,
+        "volume": 70,
+        "relativeStrength": 74,
+        "orderFlow": 68,
+        "marketRegime": 54
+      },
+      "whyBuy": [
+        "通期経常利益の上方修正",
+        "過去最高益予想をさらに上乗せ",
+        "大型株で比較的流動性を確保しやすい"
+      ],
+      "whyNotBuy": [
+        "上方修正幅はファルコムより小さい",
+        "好材料が寄り付きで一気に織り込まれる可能性",
+        "地合い悪化時は大型株でも影響を受ける"
+      ],
+      "entryCondition": "寄り付きが過熱しすぎず、セクター・指数と比べ相対的に強いこと。",
+      "invalidation": "寄り後の買いが続かず、前日終値方向へ戻る場合。",
+      "targetLogic": "初動高値と出来高推移を基準に段階利確を検討。",
+      "riskReward": "PENDING"
+    },
+    {
+      "code": "6814",
+      "name": "古野電気",
+      "exchange": "TSE",
+      "rank": "A",
+      "predictionScore": 71,
+      "price": 8390,
+      "changePct": 3.2,
+      "catalyst": "上方修正後も出来高を伴って続伸",
+      "freshness": "RECENT",
+      "dataUpdatedAt": "2026-10-07T16:13:00+09:00",
+      "components": {
+        "catalyst": 82,
+        "momentum": 78,
+        "volume": 85,
+        "relativeStrength": 75,
+        "orderFlow": 68,
+        "marketRegime": 54
+      },
+      "whyBuy": [
+        "上方修正後に実際の価格上昇で反応を確認",
+        "出来高を伴う継続モメンタム",
+        "高値更新時にブレイクアウト候補になり得る"
+      ],
+      "whyNotBuy": [
+        "材料発表後すでに一部織り込み済み",
+        "高値圏での追随買いはリスクが上がる",
+        "決算イベント前後のボラティリティ"
+      ],
+      "entryCondition": "前日高値付近のブレイクを出来高伴って確認、または押し目での反発を確認。",
+      "invalidation": "ブレイク失敗後に出来高を伴って反落する場合。",
+      "targetLogic": "高値更新の継続性と出来高減速を見て判断。",
+      "riskReward": "PENDING"
+    },
+    {
+      "code": "3498",
+      "name": "霞ヶ関キャピタル",
+      "exchange": "TSE",
+      "rank": "B",
+      "predictionScore": 66,
+      "price": null,
+      "changePct": null,
+      "catalyst": "好決算後の強いリバウンド＋モメンタム",
+      "freshness": "RECENT",
+      "dataUpdatedAt": "2026-10-07T16:13:00+09:00",
+      "components": {
+        "catalyst": 74,
+        "momentum": 76,
+        "volume": 72,
+        "relativeStrength": 70,
+        "orderFlow": 62,
+        "marketRegime": 54
+      },
+      "whyBuy": [
+        "好決算後のリバウンド",
+        "短期モメンタム継続余地"
+      ],
+      "whyNotBuy": [
+        "値動きが大きくなりやすい",
+        "材料消化後の反落リスク",
+        "現スナップショットで価格情報を固定していない"
+      ],
+      "entryCondition": "直近高値・VWAP・出来高を確認し、追いかけ買いを避ける。",
+      "invalidation": "相対強度が崩れ、直近支持帯を割り込む場合。",
+      "targetLogic": "直近高値とボラティリティを基準に判断。",
+      "riskReward": "PENDING"
+    },
+    {
+      "code": "6871",
+      "name": "日本マイクロニクス",
+      "exchange": "TSE",
+      "rank": "B",
+      "predictionScore": 63,
+      "price": null,
+      "changePct": null,
+      "catalyst": "半導体モメンタム継続候補",
+      "freshness": "RECENT",
+      "dataUpdatedAt": "2026-10-07T16:13:00+09:00",
+      "components": {
+        "catalyst": 62,
+        "momentum": 72,
+        "volume": 68,
+        "relativeStrength": 70,
+        "orderFlow": 60,
+        "marketRegime": 54
+      },
+      "whyBuy": [
+        "半導体セクターのモメンタム候補",
+        "SOX連動が追い風になる可能性"
+      ],
+      "whyNotBuy": [
+        "夜間SOX確定前で重要な外部要因が未確定",
+        "半導体地合い悪化時に影響を受けやすい",
+        "現スナップショットで価格情報を固定していない"
+      ],
+      "entryCondition": "SOX・日経先物・半導体セクターの寄り前確認後に判断。",
+      "invalidation": "SOX/セクターが弱く、寄り付き後の相対強度も弱い場合。",
+      "targetLogic": "セクター相対強度と直近高値を基準に判断。",
+      "riskReward": "PENDING"
+    }
+  ]
+}
