@@ -21,6 +21,7 @@
     </a>
     <div class="topbar-actions">
       <button id="uxModeButton" class="pill mode-toggle" type="button" aria-pressed="true">はじめてモード ON</button>
+      <button id="connectionButton" class="pill connection-pill" type="button">日次データ接続</button>
       <span id="modeBadge" class="pill pill-demo">DEMO</span>
       <button id="refreshButton" class="button button-secondary" type="button">Refresh snapshot</button>
     </div>
@@ -105,6 +106,56 @@
       </div>
       <p class="muted">「LIVE」「15分遅れ」「日次」「DEMO」を区別します。緑色だから全部リアルタイム、という表示にはしません。</p>
       <div id="dataSourceStatus" class="data-source-grid"></div>
+    </section>
+
+    <section id="liveConnectionPanel" class="panel live-connection">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">PRIVATE DATA BRIDGE</p>
+          <h2>本物の日次データへ接続</h2>
+        </div>
+        <span id="liveConnectionStatus" class="pill">未接続</span>
+      </div>
+      <p class="muted">
+        J-QuantsのAPIキーはこの画面には入力しません。サーバー側に隠し、
+        このiPhoneからはStock man専用アクセスキーだけで接続します。
+      </p>
+      <div class="connect-grid">
+        <label>
+          <span>Backend URL</span>
+          <input id="backendUrlInput" type="url" inputmode="url" placeholder="https://...vercel.app/api/live-data" autocomplete="off" />
+        </label>
+        <label>
+          <span>Stock man access key</span>
+          <input id="stockmanKeyInput" type="password" placeholder="この端末だけに保存" autocomplete="off" />
+        </label>
+      </div>
+      <div class="connect-actions">
+        <button id="saveConnectionButton" class="button" type="button">保存して接続テスト</button>
+        <button id="clearConnectionButton" class="button button-secondary" type="button">接続情報を消す</button>
+      </div>
+      <div id="liveConnectionMessage" class="connection-message">
+        現在はDEMOです。接続できるまで実取引の価格確認には使用しないでください。
+      </div>
+    </section>
+
+    <section class="panel risk-center">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">RISK FIRST</p>
+          <h2>先に「いくら負けてもいいか」を決める</h2>
+        </div>
+        <span class="pill">LOCAL ONLY</span>
+      </div>
+      <p class="muted">入力値はこの端末のブラウザだけに保存します。GitHubへは送信しません。</p>
+      <div class="risk-input-grid">
+        <label><span>運用資金</span><div class="money-input"><span>¥</span><input id="capitalInput" type="number" min="0" step="1000" placeholder="100000" /></div></label>
+        <label><span>1回の許容損失</span><div class="percent-input"><input id="riskPctInput" type="number" min="0.1" max="5" step="0.1" value="1" /><span>%</span></div></label>
+        <label><span>想定ストップ幅</span><div class="percent-input"><input id="stopPctInput" type="number" min="0.5" max="20" step="0.5" value="3" /><span>%</span></div></label>
+        <label><span>計算する銘柄</span><select id="riskCandidateSelect"></select></label>
+      </div>
+      <div id="riskResults" class="risk-results"></div>
+      <p class="risk-footnote">※ 日本株は通常100株単元です。単元未満株の取扱い・約定方式は証券会社ごとに異なるため、実注文前に証券アプリ側で確認してください。</p>
     </section>
 
     <section class="grid-two">
