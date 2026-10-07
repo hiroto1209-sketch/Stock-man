@@ -53,11 +53,27 @@ const state = {
   rankFilter: "ALL",
   sortMode: "trade",
   fallbackUsed: false,
-  beginnerMode: localStorage.getItem("stockman-beginner-mode") !== "off"
+  beginnerMode: localStorage.getItem("stockman-beginner-mode") !== "off",
+  liveConfig: loadLiveConfig(),
+  livePayload: null,
+  riskConfig: loadRiskConfig()
 };
 
 const els = {
   modeBadge: document.querySelector("#modeBadge"),
+  connectionButton: document.querySelector("#connectionButton"),
+  liveConnectionPanel: document.querySelector("#liveConnectionPanel"),
+  liveConnectionStatus: document.querySelector("#liveConnectionStatus"),
+  liveConnectionMessage: document.querySelector("#liveConnectionMessage"),
+  backendUrlInput: document.querySelector("#backendUrlInput"),
+  stockmanKeyInput: document.querySelector("#stockmanKeyInput"),
+  saveConnectionButton: document.querySelector("#saveConnectionButton"),
+  clearConnectionButton: document.querySelector("#clearConnectionButton"),
+  capitalInput: document.querySelector("#capitalInput"),
+  riskPctInput: document.querySelector("#riskPctInput"),
+  stopPctInput: document.querySelector("#stopPctInput"),
+  riskCandidateSelect: document.querySelector("#riskCandidateSelect"),
+  riskResults: document.querySelector("#riskResults"),
   uxModeButton: document.querySelector("#uxModeButton"),
   beginnerGuide: document.querySelector("#beginnerGuide"),
   termHelp: document.querySelector("#termHelp"),
@@ -81,6 +97,238 @@ const els = {
   detailContent: document.querySelector("#detailContent"),
   closeDialog: document.querySelector("#closeDialog")
 };
+
+
+const LIVE_CONFIG_KEY = "stockman-private-daily-v1";
+const RISK_CONFIG_KEY = "stockman-risk-v1";
+
+function loadLiveConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LIVE_CONFIG_KEY) || "{}");
+    return { endpoint: parsed.endpoint || "", key: parsed.key || "" };
+  } catch {
+    return { endpoint: "", key: "" };
+  }
+}
+
+function saveLiveConfig() {
+  localStorage.setItem(LIVE_CONFIG_KEY, JSON.stringify(state.liveConfig));
+}
+
+function loadRiskConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RISK_CONFIG_KEY) || "{}");
+    return {
+      capital: Number(parsed.capital) || 0,
+      riskPct: Number(parsed.riskPct) || 1,
+      stopPct: Number(parsed.stopPct) || 3,
+      code: parsed.code || ""
+    };
+  } catch {
+    return { capital: 0, riskPct: 1, stopPct: 3, code: "" };
+  }
+}
+
+function saveRiskConfig() {
+  localStorage.setItem(RISK_CONFIG_KEY, JSON.stringify(state.riskConfig));
+}
+
+function normalizeEndpoint(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+async function connectLiveData(showMessage = true) {
+  const endpoint = normalizeEndpoint(state.liveConfig.endpoint);
+  const key = String(state.liveConfig.key || "").trim();
+  if (!endpoint || !key) {
+    setConnectionState("未接続", "Backend URLとアクセスキーを設定してください。", "idle");
+    return false;
+  }
+
+  setConnectionState("接続中", "J-Quants日次データを確認しています…", "loading");
+
+  const codes = (state.data?.candidates || []).map(c => c.code).join(",");
+  try {
+    const url = new URL(endpoint);
+    url.searchParams.set("codes", codes);
+    url.searchParams.set("days", "90");
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: { "X-Stockman-Key": key, "Accept": "application/json" },
+      cache: "no-store"
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || payload.error || ("HTTP " + response.status));
+
+    state.livePayload = payload;
+    mergeLivePayload(payload);
+    renderAll();
+
+    if (payload.usableForNextDayDecision) {
+      setConnectionState(
+        "日次接続済み",
+        "J-Quantsの日次データを取得しました。最新取引日: " + (payload.latestTradingDate || "—") +
+        "。場中リアルタイムではないため、注文前は証券アプリの現在値・板も確認してください。",
+        "ok"
+      );
+    } else {
+      setConnectionState(
+        "古いデータ",
+        "接続には成功しましたが、返ってきた最新日付が古いため、翌営業日の判断には使用しません。J-Quantsのプラン/更新状況を確認してください。",
+        "warn"
+      );
+    }
+    return true;
+  } catch (error) {
+    console.error(error);
+    state.livePayload = null;
+    setConnectionState("接続エラー", "接続できません: " + String(error.message || error), "error");
+    if (showMessage) renderAll();
+    return false;
+  }
+}
+
+function mergeLivePayload(payload) {
+  if (!payload || !Array.isArray(payload.candidates) || !state.data) return;
+  const byCode = new Map(payload.candidates.map(item => [String(item.code).slice(0,4), item]));
+
+  state.data.candidates = (state.data.candidates || []).map(candidate => {
+    const live = byCode.get(String(candidate.code).slice(0,4));
+    if (!live || !live.latest) return candidate;
+    return {
+      ...candidate,
+      price: live.latest.close,
+      changePct: live.latest.changePct,
+      candles: Array.isArray(live.candles) ? live.candles : candidate.candles,
+      marketMetrics: live.metrics || {},
+      freshness: live.freshness || payload.freshness || "DAILY",
+      dataUpdatedAt: (live.latest.date || payload.latestTradingDate) + "T15:30:00+09:00"
+    };
+  });
+
+  const status = payload.usableForNextDayDecision ? "DAILY" : "STALE";
+  state.data.meta.mode = payload.usableForNextDayDecision ? "LIVE DAILY" : "STALE DAILY";
+  state.data.meta.generatedAt = payload.generatedAt || state.data.meta.generatedAt;
+  state.data.meta.marketSession = "DAILY_CLOSE_DATA";
+
+  const sources = state.data.dataSources || [];
+  for (const source of sources) {
+    if (source.label === "株価" || source.label === "ローソク足") {
+      source.status = status;
+      source.note = "J-Quants " + (payload.latestTradingDate || "");
+    }
+  }
+}
+
+function setConnectionState(label, message, tone) {
+  if (els.liveConnectionStatus) {
+    els.liveConnectionStatus.textContent = label;
+    els.liveConnectionStatus.className = "pill connection-status status-" + tone;
+  }
+  if (els.liveConnectionMessage) {
+    els.liveConnectionMessage.textContent = message;
+    els.liveConnectionMessage.className = "connection-message connection-" + tone;
+  }
+  if (els.connectionButton) {
+    els.connectionButton.textContent = label === "日次接続済み" ? "日次接続済み" : "日次データ接続";
+  }
+}
+
+function marketMetricCards(candidate) {
+  const m = candidate.marketMetrics;
+  if (!m || Object.keys(m).length === 0) {
+    return '<div class="empty">実日足を接続すると、5日騰落・RSI・出来高倍率などを表示します。</div>';
+  }
+
+  const card = (label, value, hint, tone="") => `
+    <div class="technical-card ${tone}">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value)}</strong>
+      <span>${escapeHtml(hint)}</span>
+    </div>`;
+
+  const fmtPct = v => Number.isFinite(Number(v)) ? (Number(v) > 0 ? "+" : "") + Number(v).toFixed(1) + "%" : "—";
+  const rsi = Number(m.rsi14);
+  const rsiHint = !Number.isFinite(rsi) ? "データ不足" : rsi >= 70 ? "過熱に注意" : rsi <= 30 ? "売られすぎ圏" : "中立〜健全";
+  const rvol = Number(m.relativeVolume20);
+  const rvolHint = !Number.isFinite(rvol) ? "データ不足" : rvol >= 1.5 ? "売買がかなり活発" : rvol >= 1 ? "平均以上" : "平均未満";
+
+  return `
+    <div class="technical-grid">
+      ${card("5日間", fmtPct(m.return5dPct), "短期の値動き")}
+      ${card("20日間", fmtPct(m.return20dPct), "中期の値動き")}
+      ${card("RSI", Number.isFinite(rsi) ? rsi.toFixed(1) : "—", rsiHint, rsi >= 70 ? "warn" : "")}
+      ${card("出来高倍率", Number.isFinite(rvol) ? rvol.toFixed(2) + "×" : "—", rvolHint)}
+      ${card("20日線", m.aboveSma20 === true ? "上" : m.aboveSma20 === false ? "下" : "—", "終値が20日平均より" + (m.aboveSma20 === true ? "強い" : m.aboveSma20 === false ? "弱い" : "不明"))}
+      ${card("20日高値まで", fmtPct(m.distanceTo20dHighPct), "0%に近いほど高値圏")}
+    </div>`;
+}
+
+function renderRiskCenter() {
+  if (!els.riskCandidateSelect || !state.data) return;
+  const candidates = state.data.candidates || [];
+  const existing = els.riskCandidateSelect.value || state.riskConfig.code;
+  els.riskCandidateSelect.innerHTML = candidates.map(c =>
+    `<option value="${escapeHtml(c.code)}">${escapeHtml(c.code)} ${escapeHtml(c.name)}</option>`
+  ).join("");
+
+  const selectedCode = candidates.some(c => c.code === existing) ? existing : (candidates[0]?.code || "");
+  els.riskCandidateSelect.value = selectedCode;
+  state.riskConfig.code = selectedCode;
+
+  if (els.capitalInput && document.activeElement !== els.capitalInput) {
+    els.capitalInput.value = state.riskConfig.capital || "";
+  }
+  if (els.riskPctInput && document.activeElement !== els.riskPctInput) {
+    els.riskPctInput.value = state.riskConfig.riskPct;
+  }
+  if (els.stopPctInput && document.activeElement !== els.stopPctInput) {
+    els.stopPctInput.value = state.riskConfig.stopPct;
+  }
+
+  const candidate = candidates.find(c => c.code === selectedCode);
+  const capital = Number(state.riskConfig.capital);
+  const riskPct = Number(state.riskConfig.riskPct);
+  const stopPct = Number(state.riskConfig.stopPct);
+  const price = Number(candidate?.price);
+
+  if (!capital || !Number.isFinite(price) || price <= 0) {
+    els.riskResults.innerHTML = `
+      <div class="empty">${!capital ? "運用資金を入力してください。" : "実株価を接続すると、この銘柄の資金管理を計算できます。"}</div>`;
+    return;
+  }
+
+  const riskBudget = capital * riskPct / 100;
+  const stopPerShare = price * stopPct / 100;
+  const sharesByRisk = stopPerShare > 0 ? Math.floor(riskBudget / stopPerShare) : 0;
+  const sharesByCash = Math.floor(capital / price);
+  const maxShares = Math.max(0, Math.min(sharesByRisk, sharesByCash));
+  const standardLotCost = price * 100;
+  const canBuyStandardLot = capital >= standardLotCost && sharesByRisk >= 100;
+  const standardRisk = stopPerShare * 100;
+
+  const yen = value => "¥" + Math.round(value).toLocaleString("ja-JP");
+
+  els.riskResults.innerHTML = `
+    <div class="risk-result-card"><small>この1回で許容する損失</small><strong>${yen(riskBudget)}</strong><span>資金 × ${riskPct}%</span></div>
+    <div class="risk-result-card"><small>想定ストップ1株あたり</small><strong>${yen(stopPerShare)}</strong><span>株価 ${yen(price)} × ${stopPct}%</span></div>
+    <div class="risk-result-card"><small>100株に必要な現金</small><strong>${yen(standardLotCost)}</strong><span>${capital >= standardLotCost ? "現金面では到達" : "運用資金を超えます"}</span></div>
+    <div class="risk-result-card ${canBuyStandardLot ? "risk-ok" : "risk-warn"}"><small>通常100株単元</small><strong>${canBuyStandardLot ? "条件内" : "条件外"}</strong><span>100株で想定損失 ${yen(standardRisk)}</span></div>
+    <div class="risk-result-card"><small>単元未満での参考上限</small><strong>${maxShares}株</strong><span>資金と損失上限の小さい方</span></div>
+  `;
+}
+
+function syncRiskInputs() {
+  if (!els.capitalInput) return;
+  state.riskConfig.capital = Number(els.capitalInput.value) || 0;
+  state.riskConfig.riskPct = clamp(Number(els.riskPctInput.value) || 1, 0.1, 5);
+  state.riskConfig.stopPct = clamp(Number(els.stopPctInput.value) || 3, 0.5, 20);
+  state.riskConfig.code = els.riskCandidateSelect.value || state.riskConfig.code;
+  saveRiskConfig();
+  renderRiskCenter();
+}
 
 function loadGaps() {
   try {
@@ -361,6 +609,14 @@ function openDetail(code) {
 
     ${chartSection(c)}
 
+    <section class="market-confirmation">
+      <div class="entry-map-title">
+        <small>REAL DAILY CHECK</small>
+        <strong>実日足で何が確認できた？</strong>
+      </div>
+      ${marketMetricCards(c)}
+    </section>
+
     <div class="detail-score-row">
       <div class="metric-card">
         <small>${state.beginnerMode ? "上がりやすさ" : "Prediction"}</small>
@@ -604,6 +860,7 @@ function renderAll() {
   renderDataSources();
   renderCandidates();
   renderSimulator();
+  renderRiskCenter();
 }
 
 els.rankFilter.addEventListener("change", event => {
@@ -616,7 +873,45 @@ els.sortMode.addEventListener("change", event => {
   renderCandidates();
 });
 
-els.refreshButton.addEventListener("click", () => loadSnapshot(true));
+els.refreshButton.addEventListener("click", async () => {
+  await loadSnapshot(true);
+  if (state.liveConfig.endpoint && state.liveConfig.key) await connectLiveData(false);
+});
+
+if (els.connectionButton && els.liveConnectionPanel) {
+  els.connectionButton.addEventListener("click", () => {
+    els.liveConnectionPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => els.backendUrlInput?.focus(), 350);
+  });
+}
+
+if (els.backendUrlInput) els.backendUrlInput.value = state.liveConfig.endpoint || "";
+if (els.stockmanKeyInput) els.stockmanKeyInput.value = state.liveConfig.key || "";
+
+if (els.saveConnectionButton) {
+  els.saveConnectionButton.addEventListener("click", async () => {
+    state.liveConfig.endpoint = normalizeEndpoint(els.backendUrlInput.value);
+    state.liveConfig.key = String(els.stockmanKeyInput.value || "").trim();
+    saveLiveConfig();
+    await connectLiveData(true);
+  });
+}
+
+if (els.clearConnectionButton) {
+  els.clearConnectionButton.addEventListener("click", () => {
+    state.liveConfig = { endpoint: "", key: "" };
+    state.livePayload = null;
+    saveLiveConfig();
+    els.backendUrlInput.value = "";
+    els.stockmanKeyInput.value = "";
+    setConnectionState("未接続", "接続情報をこの端末から削除しました。", "idle");
+  });
+}
+
+[els.capitalInput, els.riskPctInput, els.stopPctInput].forEach(input => {
+  if (input) input.addEventListener("input", syncRiskInputs);
+});
+if (els.riskCandidateSelect) els.riskCandidateSelect.addEventListener("change", syncRiskInputs);
 
 if (els.uxModeButton) {
   els.uxModeButton.addEventListener("click", () => {
@@ -646,4 +941,10 @@ els.detailDialog.addEventListener("click", event => {
   if (event.target === els.detailDialog) els.detailDialog.close();
 });
 
-loadSnapshot();
+loadSnapshot().then(async () => {
+  if (state.liveConfig.endpoint && state.liveConfig.key) {
+    await connectLiveData(false);
+  } else {
+    setConnectionState("未接続", "現在はDEMOです。接続できるまで実取引の価格確認には使用しないでください。", "idle");
+  }
+});
