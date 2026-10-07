@@ -3,7 +3,7 @@
 日本株の翌営業日候補を、**材料 × モメンタム × 出来高 × 相対強度 × 需給 × 地合い**で整理し、
 「上がりそう」と「今から入る期待値」を分けて判断するための分析ダッシュボードです。
 
-> Status: v0.1 prototype  
+> Status: v0.2 prototype — beginner-first UX + visual entry framework  
 > Frontend: Static HTML / CSS / JavaScript  
 > Hosting target: GitHub Pages  
 > Data: 現在は検証用スナップショット。実データAPI接続前のプロトタイプです。
@@ -101,3 +101,21 @@ AIには「数字を作らせる」のではなく、**構造化された事実�
 
 Stock man は分析支援ツールです。将来の株価や利益を保証するものではありません。
 表示する確率・スコアはモデル上の相対評価として扱い、実売買ではポジションサイズ・損失許容額・流動性を別途管理してください。
+
+
+## v0.2 update
+
+The current UI now includes:
+
+- Beginner Mode (default ON)
+- plain-Japanese decision labels
+- tappable glossary
+- per-source freshness/status center
+- beginner action state such as “寄り後の確認待ち / 監視のみ / 見送り”
+- candlestick renderer contract
+- clearly labeled tutorial candle fallback when real OHLC is unavailable
+- visual entry map
+
+See `docs/IMPROVEMENT_PROMPT_V02.md` and `docs/LIVE_DATA_PLAN.md`.
+
+**Important:** the current published snapshot is still DEMO data. The app does not yet claim real-time updates.
