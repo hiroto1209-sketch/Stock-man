@@ -119,3 +119,20 @@ The current UI now includes:
 See `docs/IMPROVEMENT_PROMPT_V02.md` and `docs/LIVE_DATA_PLAN.md`.
 
 **Important:** the current published snapshot is still DEMO data. The app does not yet claim real-time updates.
+
+
+## v0.3 private daily-data architecture
+
+The repository now includes:
+
+- `api/live-data.js` — authenticated J-Quants V2 private bridge
+- real daily OHLC/candlestick merge
+- RSI14 / ATR14 / SMA5 / SMA20 / relative-volume calculations
+- stale-data rejection
+- local-only account/risk calculator
+- standard 100-share lot feasibility check
+- Trade Readiness: OFF / DAILY READY / PREMARKET READY
+
+The public repository still contains no J-Quants credential and no private J-Quants response data.
+
+See `docs/JQUANTS_V2_PRIVATE_SETUP.md` before enabling live daily data.
