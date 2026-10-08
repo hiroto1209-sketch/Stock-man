@@ -2,6 +2,8 @@ const SNAPSHOT_URL = "./data/snapshot.json";
 const GAP_STORAGE_KEY = "stockman-gap-simulator-v1";
 const THEME_KEY = "stockman-theme-v1";
 const ONBOARDING_KEY = "stockman-onboarding-v1";
+const MANUAL_QUOTES_KEY = "stockman-manual-quotes-v1";
+const MANUAL_QUOTE_MAX_AGE_MINUTES = 5;
 
 const FALLBACK = {
   meta: {
@@ -64,7 +66,8 @@ const state = {
   journal: loadJournal(),
   predictionHistory: loadPredictionHistory(),
   theme: localStorage.getItem(THEME_KEY) || "system",
-  selectedCandidateCode: null
+  selectedCandidateCode: null,
+  manualQuotes: loadManualQuotes()
 };
 
 const els = {
@@ -257,6 +260,93 @@ function finishOnboarding() {
 const JOURNAL_KEY = "stockman-journal-v1";
 const HISTORY_KEY = "stockman-prediction-history-v1";
 const PERFORMANCE_MIN_SAMPLES = 10;
+
+function loadManualQuotes() {
+  try {
+    const parsed=JSON.parse(localStorage.getItem(MANUAL_QUOTES_KEY) || "{}");
+    return parsed && typeof parsed==="object" ? parsed : {};
+  } catch { return {}; }
+}
+
+function saveManualQuotes() {
+  localStorage.setItem(MANUAL_QUOTES_KEY,JSON.stringify(state.manualQuotes));
+}
+
+function manualQuoteStatus(code) {
+  const quote=state.manualQuotes?.[code];
+  if (!quote || !Number.isFinite(Number(quote.price)) || !quote.checkedAt) {
+    return {exists:false,recent:false,label:"現在値未確認",ageMinutes:null,quote:null};
+  }
+  const ageMinutes=Math.max(0,(Date.now()-new Date(quote.checkedAt).getTime())/60000);
+  const recent=ageMinutes<=MANUAL_QUOTE_MAX_AGE_MINUTES;
+  return {
+    exists:true,recent,
+    label:recent ? "現在値確認済み" : "現在値が古い",
+    ageMinutes,quote
+  };
+}
+
+function manualQuotePanel(candidate) {
+  const status=manualQuoteStatus(candidate.code);
+  const ref=Number(candidate.price);
+  const manual=Number(status.quote?.price);
+  const gap=Number.isFinite(manual)&&Number.isFinite(ref)&&ref>0 ? round((manual/ref-1)*100,2) : null;
+  const checked=status.quote?.checkedAt ? formatDateTime(status.quote.checkedAt) : "—";
+  return `
+    <section class="manual-quote-panel ${status.recent ? "quote-recent" : status.exists ? "quote-stale" : ""}">
+      <div class="section-title-row">
+        <div>
+          <span class="support-label">発注前の現在値確認</span>
+          <h3>証券アプリの価格を反映</h3>
+        </div>
+        <span class="status-badge ${status.recent ? "status-data" : "status-stale"}">${escapeHtml(status.label)}</span>
+      </div>
+      <p class="body-secondary">自動リアルタイム取得ではありません。証券アプリで確認した現在値を入力すると、前日終値との差をTrade Scoreへ反映します。</p>
+      <div class="manual-quote-grid">
+        <div class="quote-reference"><small>基準の日足終値</small><strong>${Number.isFinite(ref) ? "¥"+formatNumber(ref) : "UNAVAILABLE"}</strong></div>
+        <label><span>証券アプリの現在値</span><input id="manualQuoteInput" type="number" min="0" step="0.1" inputmode="decimal" value="${Number.isFinite(manual)?manual:""}" placeholder="例 2815" /></label>
+        <button id="saveManualQuoteButton" class="primary-button" type="button">現在値を反映</button>
+      </div>
+      <div class="manual-quote-meta">
+        <span>確認時刻 ${escapeHtml(checked)}</span>
+        <span>${gap==null ? "ギャップ 未計算" : "前日終値比 "+(gap>=0?"+":"")+gap+"%"}</span>
+        <span>5分超でSTALE</span>
+      </div>
+    </section>`;
+}
+
+function saveCurrentManualQuote(candidate) {
+  const input=document.querySelector("#manualQuoteInput");
+  const price=Number(input?.value);
+  if (!Number.isFinite(price)||price<=0) {
+    alert("証券アプリで確認した現在値を入力してください。");
+    return;
+  }
+  const ref=Number(candidate.price);
+  state.manualQuotes[candidate.code]={price,checkedAt:new Date().toISOString(),source:"MANUAL_BROKER_APP"};
+  saveManualQuotes();
+
+  if (Number.isFinite(ref)&&ref>0) {
+    state.gaps[candidate.code]=round((price/ref-1)*100,2);
+    saveGaps();
+  }
+
+  renderCandidates();
+  renderDailyPlan();
+  renderCandidateDetail(candidate.code);
+}
+
+function bindManualQuoteControls(candidate) {
+  const button=document.querySelector("#saveManualQuoteButton");
+  const input=document.querySelector("#manualQuoteInput");
+  if (button) button.addEventListener("click",()=>saveCurrentManualQuote(candidate));
+  if (input) input.addEventListener("keydown",event=>{
+    if (event.key==="Enter") {
+      event.preventDefault();
+      saveCurrentManualQuote(candidate);
+    }
+  });
+}
 
 function loadJournal() {
   try {
@@ -927,6 +1017,8 @@ function renderCandidateDetail(code) {
 
     ${chartSection(c)}
 
+    ${manualQuotePanel(c)}
+
     <section class="primary-decision decision-${decision.tone}">
       <span class="support-label">${state.beginnerMode ? "今どうする？" : "Decision"}</span>
       <strong>${escapeHtml(decision.label)}</strong>
@@ -985,7 +1077,10 @@ function renderCandidateDetail(code) {
       </div>
     </details>
   `;
-  requestAnimationFrame(() => mountInteractiveChart(c));
+  requestAnimationFrame(() => {
+    mountInteractiveChart(c);
+    bindManualQuoteControls(c);
+  });
 }
 
 
@@ -1023,9 +1118,26 @@ function dataExecutionStatus() {
 function executionEligibility(candidate) {
   const data = dataExecutionStatus();
   if (!data.ok) return data;
+
   const affordability = affordabilityStatus(candidate);
   if (!affordability.ok) return { ok:false, label:affordability.label, reason:affordability.reason };
-  return { ok:true, label:affordability.label, reason:affordability.reason };
+
+  const manual = manualQuoteStatus(candidate.code);
+  if (!manual.recent) {
+    return {
+      ok:false,
+      label:manual.exists ? "現在値が古い" : "現在値未確認",
+      reason:manual.exists
+        ? "証券アプリの現在値を再確認してください。手入力価格は5分でSTALE扱いです。"
+        : "証券アプリで現在値を確認し、銘柄詳細からStock manへ反映してください。"
+    };
+  }
+
+  return {
+    ok:true,
+    label:"現在値確認済み",
+    reason:"日足・資金条件・手入力現在値を確認済み。板とスプレッドは証券アプリで最終確認してください。"
+  };
 }
 
 function decisionState(candidate) {
@@ -1454,6 +1566,11 @@ function freezeCurrentPrediction() {
     invalidation:c.invalidation,
     snapshotPrice:Number.isFinite(Number(c.price))?Number(c.price):null,
     affordability:affordabilityStatus(c),
+    currentQuoteCheck:manualQuoteStatus(c.code).recent ? {
+      price:Number(state.manualQuotes[c.code].price),
+      checkedAt:state.manualQuotes[c.code].checkedAt,
+      source:"MANUAL_BROKER_APP"
+    } : null,
     dataUpdatedAt:c.dataUpdatedAt || null
   }));
 
@@ -1697,7 +1814,8 @@ function exportLocalData() {
     version:"free-v0.4",
     journal:state.journal,
     predictionHistory:state.predictionHistory,
-    riskConfig:state.riskConfig
+    riskConfig:state.riskConfig,
+    manualQuotes:state.manualQuotes
   });
 }
 
