@@ -1,0 +1,12 @@
+# Keep personally licensed market data and credentials out of this public repository
+private/
+.env
+.env.*
+*.secrets.json
+market-input-private.json
+data/public-market-input.json
+
+# Local tools and test artifacts
+node_modules/
+coverage/
+.DS_Store
