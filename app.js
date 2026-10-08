@@ -1,4 +1,5 @@
-const SNAPSHOT_URL = "./data/snapshot.json";
+const SNAPSHOT_URL = "./data/daily-analysis.json";
+const LOCAL_SOURCE_KEY = "stockman-local-market-source-v1";
 const GAP_STORAGE_KEY = "stockman-gap-simulator-v1";
 const THEME_KEY = "stockman-theme-v1";
 const ONBOARDING_KEY = "stockman-onboarding-v1";
@@ -67,11 +68,16 @@ const state = {
   predictionHistory: loadPredictionHistory(),
   theme: localStorage.getItem(THEME_KEY) || "system",
   selectedCandidateCode: null,
-  manualQuotes: loadManualQuotes()
+  manualQuotes: loadManualQuotes(),
+  localSource: loadLocalMarketSource()
 };
 
 const els = {
   modeBadge: document.querySelector("#modeBadge"),
+  autoEngineBadge: document.querySelector("#autoEngineBadge"),
+  autoEngineDescription: document.querySelector("#autoEngineDescription"),
+  localMarketInput: document.querySelector("#localMarketInput"),
+  clearLocalMarketButton: document.querySelector("#clearLocalMarketButton"),
   connectionButton: document.querySelector("#connectionButton"),
   liveConnectionPanel: document.querySelector("#liveConnectionPanel"),
   liveConnectionStatus: document.querySelector("#liveConnectionStatus"),
@@ -790,23 +796,66 @@ function freshnessLabel() {
   return { label: "STALE", tone: "stale" };
 }
 
+async function loadLocalMarketSource() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_SOURCE_KEY) || "null");
+  } catch { return null; }
+}
+
+function latestLocalAnalysis() {
+  if (!state.localSource || !window.StockManEngine) return null;
+  try {
+    const result = window.StockManEngine.analyze(state.localSource,{now:new Date().toISOString(),publicOutput:false});
+    result.meta.mode = result.meta.mode === "AUTO_DAILY" ? "MANUAL_DAILY" : "UNAVAILABLE";
+    result.meta.snapshotType = "LOCAL_IMPORT_ANALYSIS";
+    result.meta.disclaimer = "自分で取り込んだ日足データによる監視研究。実取引前に証券会社で現在値・板・最新材料を確認してください。";
+    result.dataSources.forEach(s=>{
+      if(s.label==="株価"||s.label==="ローソク足") {
+        s.status=result.meta.mode==="MANUAL_DAILY"?"MANUAL":"STALE";
+        s.note="この端末で取り込み・未検証";
+      }
+    });
+    return result;
+  } catch(error) {
+    console.warn("Local analysis rejected:",error);
+    return null;
+  }
+}
+
 async function loadSnapshot(force = false) {
-  els.refreshButton.disabled = true;
-  els.refreshButton.textContent = "Loading…";
+  if(els.refreshButton)els.refreshButton.disabled=true;
   try {
     const url = force ? `${SNAPSHOT_URL}?t=${Date.now()}` : SNAPSHOT_URL;
-    const response = await fetch(url, { cache: force ? "no-store" : "default" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    state.data = await response.json();
-    state.fallbackUsed = false;
-  } catch (error) {
-    console.warn("Snapshot load failed:", error);
-    state.data = structuredClone(FALLBACK);
-    state.fallbackUsed = true;
+    const response = await fetch(url,{cache:"no-store"});
+    if(!response.ok)throw new Error("HTTP "+response.status);
+    const payload=await response.json();
+    if (!payload?.meta || !Array.isArray(payload?.candidates))throw new Error("Invalid daily-analysis schema");
+    state.data=payload;
+    state.fallbackUsed=false;
+  } catch(error) {
+    console.warn("Automatic snapshot unavailable:",error);
+    state.data=window.StockManEngine
+      ? window.StockManEngine.unavailable("DATA_LOAD_FAILED")
+      : {meta:{mode:"UNAVAILABLE",generatedAt:new Date().toISOString(),availabilityReason:"ENGINE_NOT_AVAILABLE"},marketRegime:{status:"UNKNOWN",note:"分析エンジンを読み込めませんでした。",indicators:[]},candidates:[],dataSources:[]};
+    state.fallbackUsed=true;
   } finally {
-    els.refreshButton.disabled = false;
-    els.refreshButton.textContent = "Refresh snapshot";
+    const local=latestLocalAnalysis();
+    if(local)state.data=local;
+    if(els.refreshButton)els.refreshButton.disabled=false;
     renderAll();
+  }
+}
+
+function renderAutomaticStatus() {
+  const mode=String(state.data?.meta?.mode||"UNAVAILABLE");
+  const label=mode==="MANUAL_DAILY"?"端末内データ":mode==="AUTO_DAILY"?"日足・自動分析":mode==="DEMO"?"DEMO":"データ未接続";
+  if(els.autoEngineBadge)els.autoEngineBadge.textContent=label;
+  if(els.autoEngineDescription){
+    els.autoEngineDescription.textContent=mode==="AUTO_DAILY"
+      ?"自動分析済み。ただし日足のみであり、現在値・気配・適時開示は別途確認が必要です。"
+      :mode==="MANUAL_DAILY"
+      ?"取込済みの日足を端末内で計算しています。公開サーバーには送信しません。"
+      :"実データ取得元が未接続です。自動更新処理は無理に候補を推薦せず、データ不足を表示します。";
   }
 }
 
@@ -822,13 +871,17 @@ function renderMeta() {
   els.freshnessStatus.textContent = freshness.label;
 
   const isStale = freshness.tone === "stale";
-  const showBanner = state.fallbackUsed || isStale || meta.mode === "DEMO";
+  const showBanner = state.fallbackUsed || isStale || ["DEMO","UNAVAILABLE","MANUAL_DAILY"].includes(meta.mode);
   els.freshnessBanner.classList.toggle("hidden", !showBanner);
 
   if (state.fallbackUsed) {
     els.freshnessBanner.textContent = "Snapshot fetch failed. Embedded fallback data is displayed. Do not use it as live market data.";
   } else if (meta.mode === "DEMO") {
     els.freshnessBanner.textContent = "DEMO DATA — これはライブ市場データではありません。UI・分析ロジック検証用スナップショットです。";
+  } else if (meta.mode === "UNAVAILABLE") {
+    els.freshnessBanner.textContent = "DATA UNAVAILABLE — 最新の日足取得元が未設定か、取得に失敗しました。無理に候補を表示しません。";
+  } else if (meta.mode === "MANUAL_DAILY") {
+    els.freshnessBanner.textContent = "MANUAL — 端末に取り込んだデータです。ニュース・気配・現在値は別途確認してください。";
   } else if (isStale) {
     els.freshnessBanner.textContent = "STALE DATA — データが古いため、スコアを売買判断に使用しないでください。";
   }
@@ -1112,7 +1165,7 @@ function dataExecutionStatus() {
   if (state.livePayload?.usableForNextDayDecision || mode.includes("LIVE DAILY") || mode.includes("PRIVATE_DAILY")) {
     return { ok:true, label:"日足確認済み", reason:"日足は確認済み。発注前に証券アプリで現在値・板を確認してください。" };
   }
-  return { ok:false, label:"データ未確認", reason:"実取引に必要なデータ状態を確認できていません。" };
+  return { ok:false, label:"日足のみ・発注前確認", reason:"これは日足の監視分析です。現在値、板、材料、許容損失を証券会社で別途確認してください。" };
 }
 
 function executionEligibility(candidate) {
@@ -1511,11 +1564,12 @@ function renderDailyPlan() {
   if (!els.dailyPlanSummary || !state.data) return;
   const all = allCandidateViewModels().sort((a,b)=>b.tradeScore-a.tradeScore);
   const tradable = all.filter(c => c.displayRank !== "NO TRADE" && executionEligibility(c).ok);
-  const top = tradable.slice(0,3);
+  const watching = all.filter(c => c.displayRank !== "NO TRADE" && c.analysisState !== "INSUFFICIENT_DATA");
+  const top = watching.slice(0,3);
   const capital=Number(state.riskConfig.capital);
   const regime=state.data.marketRegime || {};
   const mode=state.data.meta?.mode || "UNKNOWN";
-  const readiness=state.livePayload?.usableForNextDayDecision ? "日足確認済み" : "DEMO / 未接続";
+  const readiness=state.livePayload?.usableForNextDayDecision ? "日足確認済み" : String(state.data.meta?.mode||"UNAVAILABLE");
 
   if (els.dailyPlanMode) els.dailyPlanMode.textContent = mode;
 
@@ -1524,12 +1578,12 @@ function renderDailyPlan() {
 
   els.dailyPlanSummary.innerHTML = `
     <div class="plan-summary-card"><small>今日の相場</small><strong>${escapeHtml(marketText)}</strong><span>${escapeHtml(regime.note || "市場情報を確認してください。")}</span></div>
-    <div class="plan-summary-card"><small>実取引候補</small><strong>${tradable.length} 銘柄</strong><span>資金条件・Trade Scoreを反映</span></div>
+    <div class="plan-summary-card"><small>監視候補</small><strong>${watching.length} 銘柄</strong><span>実際の発注候補とは異なります</span></div>
     <div class="plan-summary-card"><small>運用資金</small><strong>${capital ? "¥"+Math.round(capital).toLocaleString("ja-JP") : "未設定"}</strong><span>${capital ? "ランキングへ資金制約を反映中" : "RISK FIRSTで設定してください"}</span></div>
     <div class="plan-summary-card"><small>データ状態</small><strong>${escapeHtml(readiness)}</strong><span>発注前は証券アプリの現在値・板を確認</span></div>`;
 
   if (!top.length) {
-    els.dailyPlanCandidates.innerHTML='<div class="empty">現在のデータ・資金・価格条件では実取引候補はありません。見送る判断も正解です。</div>';
+    els.dailyPlanCandidates.innerHTML='<div class="empty">確認できた最新データから条件を満たす監視候補はありません。取得元・データの鮮度を確認してください。</div>';
     return;
   }
 
@@ -1548,6 +1602,10 @@ function renderDailyPlan() {
 
 function freezeCurrentPrediction() {
   if (!state.data) return;
+  if (!Array.isArray(state.data.candidates) || !state.data.candidates.length || state.data.meta.mode==="UNAVAILABLE") {
+    alert("検証できる予測候補がありません。データを接続してから保存してください。");
+    return;
+  }
   const checkpoint=checkpointNow();
   const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
   const duplicate=state.predictionHistory.some(h=>h.date===today&&h.checkpoint===checkpoint);
@@ -1837,6 +1895,7 @@ function renderAll() {
   renderMarket();
   renderTradeReadiness();
   renderDataSources();
+  renderAutomaticStatus();
   renderCandidateContext();
   renderCandidates();
   renderSimulator();
@@ -1997,6 +2056,30 @@ if (els.finishOnboardingButton) els.finishOnboardingButton.addEventListener("cli
 window.addEventListener("hashchange", applyRoute);
 matchMedia("(min-width: 840px)").addEventListener?.("change", applyRoute);
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (state.theme === "system") applyTheme(); });
+
+if(els.localMarketInput)els.localMarketInput.addEventListener("change",async event=>{
+  const file=event.target.files?.[0];
+  if(!file)return;
+  try {
+    if(file.size>3*1024*1024)throw new Error("ファイルが大きすぎます（上限3MB）。");
+    const parsed=JSON.parse(await file.text());
+    if(!window.StockManEngine)throw new Error("分析エンジンが読み込まれていません。");
+    const result=window.StockManEngine.analyze(parsed,{now:new Date().toISOString(),publicOutput:false});
+    if(result.meta.mode!=="AUTO_DAILY")throw new Error("最新25営業日以上の正しい日足が必要です。古いファイルは使えません。");
+    localStorage.setItem(LOCAL_SOURCE_KEY,JSON.stringify(parsed));
+    state.localSource=parsed;
+    await loadSnapshot(true);
+    goTo("#home");
+  } catch(error) {
+    alert("入力できませんでした: "+String(error.message||error));
+  } finally {event.target.value="";}
+});
+
+if(els.clearLocalMarketButton)els.clearLocalMarketButton.addEventListener("click",async()=>{
+  localStorage.removeItem(LOCAL_SOURCE_KEY);
+  state.localSource=null;
+  await loadSnapshot(true);
+});
 
 applyTheme();
 renderTopDate();
