@@ -644,13 +644,17 @@ function renderMarket() {
     : '<div class="empty">Market indicators unavailable.</div>';
 }
 
-function candidateViewModels() {
-  const list = (state.data.candidates || []).map(candidate => ({
+function allCandidateViewModels() {
+  return (state.data.candidates || []).map(candidate => ({
     ...candidate,
     gap: Number(state.gaps[candidate.code] ?? 0),
     tradeScore: adjustedTradeScore(candidate),
     displayRank: displayRank(candidate)
   }));
+}
+
+function candidateViewModels() {
+  const list = allCandidateViewModels();
 
   const filtered = state.rankFilter === "ALL"
     ? list
@@ -1086,7 +1090,7 @@ function beginnerEntryMap(candidate) {
 
 function renderDailyPlan() {
   if (!els.dailyPlanSummary || !state.data) return;
-  const all = candidateViewModels();
+  const all = allCandidateViewModels().sort((a,b)=>b.tradeScore-a.tradeScore);
   const tradable = all.filter(c => c.displayRank !== "NO TRADE");
   const top = tradable.slice(0,3);
   const capital=Number(state.riskConfig.capital);
@@ -1133,7 +1137,7 @@ function freezeCurrentPrediction() {
     return;
   }
 
-  const candidates=candidateViewModels().map(c=>({
+  const candidates=allCandidateViewModels().sort((a,b)=>b.tradeScore-a.tradeScore).map(c=>({
     code:c.code,name:c.name,
     predictionScore:c.predictionScore,
     tradeScore:c.tradeScore,
