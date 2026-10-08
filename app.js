@@ -130,6 +130,7 @@ const els = {
   regimeNote: document.querySelector("#regimeNote"),
   marketIndicators: document.querySelector("#marketIndicators"),
   candidateList: document.querySelector("#candidateList"),
+  candidateContext: document.querySelector("#candidateContext"),
   simulatorList: document.querySelector("#simulatorList"),
   rankFilter: document.querySelector("#rankFilter"),
   sortMode: document.querySelector("#sortMode"),
@@ -785,6 +786,16 @@ function rankClass(rank) {
   return "rank-" + rank.replaceAll(" ", "-");
 }
 
+function renderCandidateContext() {
+  if (!els.candidateContext || !state.data) return;
+  const regime = state.data.marketRegime?.status || "UNKNOWN";
+  const updated = formatDateTime(state.data.meta?.generatedAt);
+  els.candidateContext.innerHTML = `
+    <span>データ ${escapeHtml(updated)}</span>
+    <span>相場 ${escapeHtml(regime)}</span>
+    <span>${escapeHtml(dataExecutionStatus().label)}</span>`;
+}
+
 function renderCandidates() {
   const list = candidateViewModels();
 
@@ -875,12 +886,17 @@ function renderSimulator() {
 
 function renderCandidateDetail(code) {
   const c = (state.data.candidates || []).find(item => item.code === code);
-  if (!c) return;
+  if (!c) {
+    els.detailContent.innerHTML = '<div class="empty">銘柄データが見つかりません。</div>';
+    return;
+  }
 
   const gap = Number(state.gaps[c.code] ?? 0);
   const tradeScore = adjustedTradeScore(c);
-  const rank = rankFromScore(tradeScore, gap);
+  const rank = displayRank(c);
   const penalty = gapPenalty(gap);
+  const decision = decisionState(c);
+  const execution = executionEligibility(c);
 
   const breakdown = Object.entries(c.components || {}).map(([key, value]) => `
     <div class="break-row">
@@ -895,19 +911,23 @@ function renderCandidateDetail(code) {
 
   els.detailContent.innerHTML = `
     <div class="detail-header">
-      <span class="code">${escapeHtml(c.code)} · ${escapeHtml(c.exchange || "TSE")}</span>
-      <h2>${escapeHtml(c.name)}</h2>
+      <div class="detail-heading-row">
+        <div>
+          <span class="code">${escapeHtml(c.code)} · ${escapeHtml(c.exchange || "TSE")}</span>
+          <h2>${escapeHtml(c.name)}</h2>
+        </div>
+        <span class="status-badge ${execution.ok ? "status-data" : "status-stale"}">${escapeHtml(c.freshness || state.data?.meta?.mode || "UNAVAILABLE")}</span>
+      </div>
       <p class="muted">${escapeHtml(c.catalyst)}</p>
+      <p class="detail-updated">更新 ${escapeHtml(formatDateTime(c.dataUpdatedAt))}</p>
     </div>
 
     ${chartSection(c)}
 
-    <section class="market-confirmation">
-      <div class="entry-map-title">
-        <small>${state.beginnerMode ? "日足の確認" : "DAILY TECHNICALS"}</small>
-        <strong>${state.beginnerMode ? "値動きは強い？" : "Daily confirmation"}</strong>
-      </div>
-      ${marketMetricCards(c)}
+    <section class="primary-decision decision-${decision.tone}">
+      <span class="support-label">${state.beginnerMode ? "今どうする？" : "Decision"}</span>
+      <strong>${escapeHtml(decision.label)}</strong>
+      <p>${escapeHtml(decision.detail)}</p>
     </section>
 
     <div class="detail-score-row">
@@ -917,7 +937,7 @@ function renderCandidateDetail(code) {
       </div>
       <div class="metric-card">
         <small>${state.beginnerMode ? "今の入りやすさ" : "Trade"}</small>
-        <strong class="positive">${tradeScore}</strong>
+        <strong>${tradeScore}</strong>
       </div>
       <div class="metric-card">
         <small>Rank</small>
@@ -925,12 +945,13 @@ function renderCandidateDetail(code) {
       </div>
     </div>
 
-    <div class="metric-card">
-      <small>${state.beginnerMode ? "寄り前の調整" : "Premarket adjustment"}</small>
-      <strong style="font-size:16px">${gap >= 0 ? "+" : ""}${gap}% gap → -${penalty} pts</strong>
-    </div>
+    ${beginnerEntryMap(c)}
 
-    <div class="breakdown">${breakdown}</div>
+    <div class="trade-plan">
+      <div class="plan-row"><small>${state.beginnerMode ? "入る条件" : "Entry condition"}</small><p>${escapeHtml(safeText(c.entryCondition))}</p></div>
+      <div class="plan-row"><small>${state.beginnerMode ? "やめる条件" : "Invalidation"}</small><p>${escapeHtml(safeText(c.invalidation))}</p></div>
+      <div class="plan-row"><small>${state.beginnerMode ? "利益確定の考え方" : "Target logic"}</small><p>${escapeHtml(safeText(c.targetLogic))}</p></div>
+    </div>
 
     <div class="dual-case">
       <section class="case buy">
@@ -943,16 +964,24 @@ function renderCandidateDetail(code) {
       </section>
     </div>
 
-    ${beginnerEntryMap(c)}
-
-    <div class="trade-plan">
-      <div class="plan-row"><small>${state.beginnerMode ? "入る条件" : "Entry condition"}</small><p>${escapeHtml(safeText(c.entryCondition))}</p></div>
-      <div class="plan-row"><small>${state.beginnerMode ? "やめる条件" : "Invalidation"}</small><p>${escapeHtml(safeText(c.invalidation))}</p></div>
-      <div class="plan-row"><small>${state.beginnerMode ? "利益確定の考え方" : "Target logic"}</small><p>${escapeHtml(safeText(c.targetLogic))}</p></div>
-      <div class="plan-row"><small>${state.beginnerMode ? "データ更新" : "Data updated"}</small><p>${escapeHtml(formatDateTime(c.dataUpdatedAt))}</p></div>
-    </div>
+    <details class="technical-details" ${state.beginnerMode ? "" : "open"}>
+      <summary>${state.beginnerMode ? "詳しい指標を見る" : "Technical details"}</summary>
+      <div class="technical-details-body">
+        <section class="market-confirmation">
+          <div class="entry-map-title">
+            <small>${state.beginnerMode ? "日足の確認" : "DAILY TECHNICALS"}</small>
+            <strong>${state.beginnerMode ? "値動きは強い？" : "Daily confirmation"}</strong>
+          </div>
+          ${marketMetricCards(c)}
+        </section>
+        <div class="metric-card gap-adjustment">
+          <small>${state.beginnerMode ? "寄り前の調整" : "Premarket adjustment"}</small>
+          <strong>${gap >= 0 ? "+" : ""}${gap}% → -${penalty} pts</strong>
+        </div>
+        <div class="breakdown">${breakdown}</div>
+      </div>
+    </details>
   `;
-
 }
 
 
@@ -971,7 +1000,35 @@ const glossary = {
   "押し目": "上昇中の銘柄が一時的に下がる場面。再上昇を確認して入る考え方があります。"
 };
 
+function dataExecutionStatus() {
+  const mode = String(state.data?.meta?.mode || "UNKNOWN");
+  const freshness = freshnessLabel();
+
+  if (mode.includes("DEMO")) {
+    return { ok:false, label:"DEMO・参考のみ", reason:"固定スナップショットです。実取引の判断には使用しません。" };
+  }
+  if (mode.includes("STALE") || freshness.tone === "stale" || (state.livePayload && !state.livePayload.usableForNextDayDecision)) {
+    return { ok:false, label:"古いデータ・見送り", reason:"データが古いため、実取引候補にはしません。" };
+  }
+  if (state.livePayload?.usableForNextDayDecision || mode.includes("LIVE DAILY") || mode.includes("PRIVATE_DAILY")) {
+    return { ok:true, label:"日足確認済み", reason:"日足は確認済み。発注前に証券アプリで現在値・板を確認してください。" };
+  }
+  return { ok:false, label:"データ未確認", reason:"実取引に必要なデータ状態を確認できていません。" };
+}
+
+function executionEligibility(candidate) {
+  const data = dataExecutionStatus();
+  if (!data.ok) return data;
+  const affordability = affordabilityStatus(candidate);
+  if (!affordability.ok) return { ok:false, label:affordability.label, reason:affordability.reason };
+  return { ok:true, label:affordability.label, reason:affordability.reason };
+}
+
 function decisionState(candidate) {
+  const dataStatus = dataExecutionStatus();
+  if (!dataStatus.ok) {
+    return { label: dataStatus.label, detail: dataStatus.reason, tone: "stop" };
+  }
   const affordability = affordabilityStatus(candidate);
   if (!affordability.ok) {
     return { label: "資金条件で見送り", detail: affordability.reason, tone: "stop" };
@@ -1199,7 +1256,7 @@ function beginnerEntryMap(candidate) {
 function renderDailyPlan() {
   if (!els.dailyPlanSummary || !state.data) return;
   const all = allCandidateViewModels().sort((a,b)=>b.tradeScore-a.tradeScore);
-  const tradable = all.filter(c => c.displayRank !== "NO TRADE");
+  const tradable = all.filter(c => c.displayRank !== "NO TRADE" && executionEligibility(c).ok);
   const top = tradable.slice(0,3);
   const capital=Number(state.riskConfig.capital);
   const regime=state.data.marketRegime || {};
@@ -1218,7 +1275,7 @@ function renderDailyPlan() {
     <div class="plan-summary-card"><small>データ状態</small><strong>${escapeHtml(readiness)}</strong><span>発注前は証券アプリの現在値・板を確認</span></div>`;
 
   if (!top.length) {
-    els.dailyPlanCandidates.innerHTML='<div class="empty">現在の条件では実取引候補はありません。NO TRADEも正解です。</div>';
+    els.dailyPlanCandidates.innerHTML='<div class="empty">現在のデータ・資金・価格条件では実取引候補はありません。見送る判断も正解です。</div>';
     return;
   }
 
@@ -1380,8 +1437,11 @@ function renderJournal() {
           <div><small>株数</small><strong>${j.shares}</strong></div>
           <div><small>損益</small><strong class="${pnl>0?"positive":pnl<0?"negative":""}">${pnl==null?"—":(pnl>0?"+":"")+"¥"+Math.round(pnl).toLocaleString("ja-JP")}</strong></div>
         </div>
-        <div class="journal-notes"><b>Entry:</b> ${escapeHtml(j.entryReason||"—")}<br><b>Exit:</b> ${escapeHtml(j.exitReason||"—")}<br><b>学び:</b> ${escapeHtml(j.reflection||"—")}</div>
-        ${j.screenshot?'<img class="journal-thumb" src="'+j.screenshot+'" alt="取引スクリーンショット"/>':""}
+        <details class="journal-details">
+          <summary>詳細を見る</summary>
+          <div class="journal-notes"><b>Entry:</b> ${escapeHtml(j.entryReason||"—")}<br><b>Exit:</b> ${escapeHtml(j.exitReason||"—")}<br><b>学び:</b> ${escapeHtml(j.reflection||"—")}</div>
+          ${j.screenshot?'<img class="journal-thumb" src="'+j.screenshot+'" alt="取引スクリーンショット"/>':""}
+        </details>
       </article>`;
   }).join("");
 }
@@ -1517,6 +1577,7 @@ function renderAll() {
   renderMarket();
   renderTradeReadiness();
   renderDataSources();
+  renderCandidateContext();
   renderCandidates();
   renderSimulator();
   renderRiskCenter();
