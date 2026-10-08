@@ -273,6 +273,25 @@
           </section>
 
           <section class="settings-group">
+            <div class="section-title-row">
+              <div><h2>Automatic Daily Analysis</h2><span class="support-label">毎営業日、最新の日足から候補を再評価</span></div>
+              <span id="autoEngineBadge" class="status-badge">未接続</span>
+            </div>
+            <p id="autoEngineDescription" class="body-secondary">最新データの取得元は未接続です。古いDEMOを売買候補に流用しません。</p>
+            <div class="setting-row">
+              <div><strong>自分のデータで分析</strong><span>過去25営業日以上のOHLCVが入ったJSONを、端末内だけで解析できます。GitHubへは送信しません。</span></div>
+              <label class="text-button local-file-label">JSON読込
+                <input id="localMarketInput" type="file" accept="application/json,.json" class="visually-hidden"/>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div><strong>ローカルの市場データ</strong><span>前回の取込データを消して自動配信表示に戻します。</span></div>
+              <button id="clearLocalMarketButton" class="text-button danger-text" type="button">取込を解除</button>
+            </div>
+            <a class="inline-link" href="https://github.com/hiroto1209-sketch/Stock-man/blob/main/docs/AUTOMATIC_DAILY_SETUP.md" target="_blank" rel="noopener noreferrer">入力データ形式・自動更新の設定方法 ↗</a>
+          </section>
+
+          <section class="settings-group">
             <h2>データ管理</h2>
             <div class="setting-row">
               <div><strong>ローカル記録</strong><span>Journal・予測履歴・リスク設定をJSONで保存します。</span></div>
@@ -356,6 +375,7 @@
   </dialog>
 
   <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="./engine/analysis-core.js" defer></script>
   <script src="./app.js" defer></script>
 </body>
 </html>
