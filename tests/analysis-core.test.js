@@ -74,3 +74,21 @@ test("capital data never propagates to public snapshot",()=>{
   assert.equal(output.includes("accountBalance"),false);
   assert.equal(output.includes("BUY NOW"),false);
 });
+
+test("future candles are not used for today's prediction",()=>{
+  const raw=input();
+  raw.candidates[0].candles.push({time:"2026-10-09",open:500,high:600,low:400,close:599,volume:800000});
+  const result=E.analyze(raw,{now:asOf,publicOutput:true});
+  assert.equal(result.candidates[0].price!==599,true);
+});
+test("unverified bullish market never grants a bonus",()=>{
+  const raw=input({market:{status:"RISK_ON",verified:false}});
+  const result=E.analyze(raw,{now:asOf,publicOutput:true});
+  assert.equal(result.marketRegime.status,"UNKNOWN");
+  assert.equal(result.candidates[0].components.marketRegime,0);
+});
+test("future-dated provider snapshot is not current",()=>{
+  const raw=input({source:{status:"DAILY",asOf:"2026-10-09",redistributionPermitted:true,licenseUrl:"https://example.com/license"}});
+  const result=E.analyze(raw,{now:asOf,publicOutput:true});
+  assert.equal(result.meta.mode,"UNAVAILABLE");
+});
