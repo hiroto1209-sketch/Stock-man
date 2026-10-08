@@ -184,3 +184,25 @@ Key UI changes:
 - neon/glass/marketing-hero visual language removed
 
 Existing localStorage keys and analysis logic were intentionally preserved.
+
+
+## Interactive charts — TradingView Lightweight Charts 5.2.1
+
+Stock man now loads the official TradingView Lightweight Charts standalone build pinned to v5.2.1.
+
+When real OHLC exists, candidate detail uses an interactive chart with:
+
+- candlesticks
+- volume histogram
+- SMA5
+- SMA20
+- crosshair
+- mouse/touch pan
+- pinch/scroll scaling
+- responsive resize
+
+Important: Lightweight Charts is a renderer, not a TradingView market-data API. The chart only displays Stock man's own connected candle data.
+
+Each TSE candidate also includes an external "TradingViewで確認" link for current independent visual verification.
+
+The TradingView Lightweight Charts attribution notice is shown under the chart as required by its NOTICE/license.
