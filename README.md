@@ -206,3 +206,20 @@ Important: Lightweight Charts is a renderer, not a TradingView market-data API. 
 Each TSE candidate also includes an external "TradingViewで確認" link for current independent visual verification.
 
 The TradingView Lightweight Charts attribution notice is shown under the chart as required by its NOTICE/license.
+
+
+## Manual current-quote execution check
+
+Because TradingView does not expose a public market-data API and the app does not yet have a licensed intraday Japanese equity feed, Stock man now requires a recent manual broker quote before a candidate can pass the strict execution gate.
+
+Flow:
+
+1. analyze candidate in Stock man
+2. open TradingView for independent chart verification if useful
+3. check the actual current quote in the brokerage app
+4. enter that current quote into Stock man
+5. Stock man recalculates the gap/Trade Score
+6. manual quote becomes STALE after 5 minutes
+7. confirm board/spread in the brokerage app before any order
+
+Manual current quotes are stored only in localStorage and are included in the user's JSON backup.
