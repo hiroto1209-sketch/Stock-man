@@ -530,3 +530,18 @@ label>span{display:block;margin-bottom:6px;font-size:10px;color:var(--md-sys-col
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;transition-duration:.001ms!important}
 }
+
+.status-ok,.status-data{background:var(--md-sys-color-primary-container);color:var(--md-sys-color-on-primary-container)}
+.status-warn,.status-stale{background:var(--md-sys-color-warning-container);color:#3d2f00}
+.status-error{background:var(--md-sys-color-error-container);color:var(--md-sys-color-on-error-container)}
+.beginner-mode .breakdown{display:none}
+.beginner-mode .technical-card small{font-size:9px}
+.pro-mode .decision-chip{opacity:.85}
+@media(max-width:599px){
+  .data-glance{display:none}
+  .beginner-mode .indicator-grid.compact .indicator:nth-child(n+5){display:none}
+  .home-grid{gap:10px}
+  .home-daily-plan{margin-top:10px}
+  .surface-card,.daily-plan{padding:16px}
+  .market-panel .body-secondary{margin-bottom:6px}
+}
