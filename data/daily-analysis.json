@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "product": "Stock man",
+    "mode": "UNAVAILABLE",
+    "snapshotType": "DETERMINISTIC_DAILY_ANALYSIS",
+    "engineVersion": "1.0.0",
+    "generatedAt": "2026-10-08T15:39:00+09:00",
+    "dataAsOf": null,
+    "marketSession": "POST_CLOSE_RESEARCH",
+    "sourceStatus": "STALE",
+    "nextReviewAt": null,
+    "disclaimer": "日足ベースの監視候補でありリアルタイムの買い推奨ではありません。寄り前市場情報・現在値・板・損失許容額の確認が必要です。",
+    "availabilityReason": "AUTO_SOURCE_NOT_CONFIGURED"
+  },
+  "marketRegime": {
+    "status": "UNKNOWN",
+    "score": null,
+    "confidence": "LOW",
+    "note": "市場環境は未確認。単独で売買判断しない。",
+    "indicators": []
+  },
+  "dataSources": [
+    {
+      "label": "株価",
+      "status": "UNAVAILABLE",
+      "note": "未接続"
+    },
+    {
+      "label": "ローソク足",
+      "status": "UNAVAILABLE",
+      "note": "日足・場中ではない"
+    },
+    {
+      "label": "決算・適時開示",
+      "status": "UNAVAILABLE",
+      "note": "検証済みURLのみ採用"
+    },
+    {
+      "label": "PTS",
+      "status": "UNAVAILABLE",
+      "note": "自動取得元なし"
+    },
+    {
+      "label": "米国市場",
+      "status": "UNAVAILABLE",
+      "note": "自動取得元なし"
+    },
+    {
+      "label": "日経先物",
+      "status": "UNAVAILABLE",
+      "note": "自動取得元なし"
+    },
+    {
+      "label": "為替",
+      "status": "UNAVAILABLE",
+      "note": "自動取得元なし"
+    }
+  ],
+  "candidates": []
+}
