@@ -490,7 +490,7 @@ async function connectLiveData(showMessage = true) {
     return false;
   }
 
-  setConnectionState("接続中", "J-Quants日次データを確認しています…", "loading");
+  setConnectionState("接続中", "個人用データの取得・鮮度を確認しています…", "loading");
 
   const codes = (state.data?.candidates || []).map(c => c.code).join(",");
   try {
@@ -505,7 +505,44 @@ async function connectLiveData(showMessage = true) {
     });
 
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.message || payload.error || ("HTTP " + response.status));
+    if (!response.ok) throw new Error(payload.message || payload.error || payload.reason || ("HTTP " + response.status));
+
+    if (payload.format === "stockman-private-ohlcv-v1") {
+      if (!window.StockManEngine) throw new Error("分析エンジンが読み込めません。");
+      const sourceAsOf = payload.dataAsOf ? payload.dataAsOf + "T15:30:00+09:00" : null;
+      const input = {
+        asOf:payload.fetchedAt,
+        source:{provider:payload.source||"Alpha Vantage (private)",status:payload.status==="DAILY"?"DAILY":"UNAVAILABLE",asOf:sourceAsOf,redistributionPermitted:false},
+        market:{status:"UNKNOWN",verified:false,note:"市場環境、PTS、寄り前気配は未接続。証券アプリで確認してください。"},
+        candidates:(payload.candidates||[]).map(c=>({
+          code:String(c.code),name:String(c.name||c.code),candles:c.candles,catalysts:[]
+        })),
+        disclosuresVerified:false
+      };
+      const analysis=window.StockManEngine.analyze(input,{now:new Date().toISOString(),publicOutput:false});
+      analysis.meta.mode=analysis.meta.mode==="AUTO_DAILY"?"PRIVATE_RESEARCH_DAILY":"STALE";
+      analysis.meta.snapshotType="PERSONAL_RESEARCH_ONLY";
+      analysis.meta.disclaimer="個人用日足データです。証券アプリのリアルタイムの板・現在値・適時開示の確認が必須です。";
+      for(const item of analysis.dataSources||[]){
+        if(item.label==="株価"||item.label==="ローソク足"){
+          item.status=analysis.meta.mode==="PRIVATE_RESEARCH_DAILY"?"DAILY":"STALE";
+          item.note="個人用日足 / 再配信禁止";
+        }
+      }
+      state.data=analysis;
+      state.livePayload=null; // Never auto-upgrade execution readiness using daily-only provider data.
+      state.fallbackUsed=false;
+      renderAll();
+      const failures=(payload.failures||[]).length;
+      setConnectionState(
+        analysis.meta.mode==="PRIVATE_RESEARCH_DAILY"?"日足の分析完了":"日足が古い",
+        "Alpha Vantage個人用日足: "+analysis.candidates.length+"銘柄。"+
+        (failures?"取得不可: "+failures+"銘柄。":"")+
+        "これは寄り前気配・最新材料を反映していません。証券アプリで最終確認してください。",
+        analysis.meta.mode==="PRIVATE_RESEARCH_DAILY"?"ok":"warn"
+      );
+      return analysis.meta.mode==="PRIVATE_RESEARCH_DAILY";
+    }
 
     state.livePayload = payload;
     mergeLivePayload(payload);
@@ -866,10 +903,12 @@ async function loadSnapshot(force = false) {
 
 function renderAutomaticStatus() {
   const mode=String(state.data?.meta?.mode||"UNAVAILABLE");
-  const label=mode==="MANUAL_DAILY"?"端末内データ":mode==="AUTO_DAILY"?"日足・自動分析":mode==="DEMO"?"DEMO":"データ未接続";
+  const label=mode==="MANUAL_DAILY"?"端末内データ":mode==="PRIVATE_RESEARCH_DAILY"?"個人用・日足分析":mode==="AUTO_DAILY"?"日足・自動分析":mode==="DEMO"?"DEMO":"データ未接続";
   if(els.autoEngineBadge)els.autoEngineBadge.textContent=label;
   if(els.autoEngineDescription){
-    els.autoEngineDescription.textContent=mode==="AUTO_DAILY"
+    els.autoEngineDescription.textContent=mode==="PRIVATE_RESEARCH_DAILY"
+      ?"Cloudflare Workerから個人用の日足を取得し、このiPhone/iPad上で分析しました。APIキーはサーバー側のみに保存され、株価データをGitHubへ公開しません。"
+      :mode==="AUTO_DAILY"
       ?"自動分析済み。ただし日足のみであり、現在値・気配・適時開示は別途確認が必要です。"
       :mode==="MANUAL_DAILY"
       ?"取込済みの日足を端末内で計算しています。公開サーバーには送信しません。"
@@ -1259,7 +1298,11 @@ function renderTradeReadiness() {
   let tone = "off";
   let message = "DEMOまたは重要データ未接続。実取引判断には使用しないでください。";
 
-  if (state.livePayload?.usableForNextDayDecision) {
+  if (state.data?.meta?.mode === "PRIVATE_RESEARCH_DAILY") {
+    level = "RESEARCH DAILY";
+    tone = "daily";
+    message = "日足の自動分析は完了。リアルタイム・適時開示・板は未確認です。注文判断には証券アプリで再確認してください。";
+  } else if (state.livePayload?.usableForNextDayDecision) {
     level = "DAILY READY";
     tone = "daily";
     message = "最新の日足は確認済み。ただし寄り付き・場中の現在値ではありません。発注前に証券アプリで現在値、板、スプレッドを必ず確認してください。";
@@ -1582,7 +1625,9 @@ function renderDailyPlan() {
   if (!els.dailyPlanSummary || !state.data) return;
   const all = allCandidateViewModels().sort((a,b)=>b.tradeScore-a.tradeScore);
   const tradable = all.filter(c => c.displayRank !== "NO TRADE" && executionEligibility(c).ok);
-  const watching = all.filter(c => c.displayRank !== "NO TRADE" && c.analysisState !== "INSUFFICIENT_DATA");
+  const watching = all.filter(c =>
+    c.analysisState === "RESEARCH_ONLY" && c.freshness === "DAILY"
+  ).sort((a,b)=>b.predictionScore-a.predictionScore);
   const top = watching.slice(0,3);
   const capital=Number(state.riskConfig.capital);
   const regime=state.data.marketRegime || {};
