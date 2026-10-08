@@ -136,3 +136,23 @@ The repository now includes:
 The public repository still contains no J-Quants credential and no private J-Quants response data.
 
 See `docs/JQUANTS_V2_PRIVATE_SETUP.md` before enabling live daily data.
+
+
+## v0.4 — Free Decision OS
+
+The free-mode build now prioritizes process over data quantity:
+
+- Daily Trading Plan
+- account affordability hard gate
+- standard-lot vs odd-lot mode
+- local-only Trade Journal
+- compressed local screenshot attachment
+- immutable Prediction History snapshots
+- append-only next-session OHLC outcomes
+- MFE / MAE calculation
+- Performance Dashboard locked until 10 non-DEMO settled observations
+- JSON backup of local records
+- real daily chart: candles + volume + SMA5 + SMA20
+
+No synthetic performance is displayed.
+DEMO prediction snapshots are excluded from performance statistics.
