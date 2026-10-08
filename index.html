@@ -259,11 +259,11 @@
           </section>
 
           <section id="liveConnectionPanel" class="settings-group live-connection">
-            <div class="section-title-row"><h2>日次データ接続</h2><span id="liveConnectionStatus" class="status-badge">未接続</span></div>
-            <p class="body-secondary">J-QuantsのAPIキーはブラウザに置かず、Private Backend側に保存します。</p>
+            <div class="section-title-row"><h2>個人用・日次データ接続</h2><span id="liveConnectionStatus" class="status-badge">未接続</span></div>
+            <p class="body-secondary">Alpha VantageまたはJ-QuantsのAPIキーは、Cloudflare/Vercelの非公開サーバー側にだけ保存します。</p>
             <div class="settings-fields connect-grid">
-              <label><span>Backend URL</span><input id="backendUrlInput" type="url" inputmode="url" placeholder="https://.../api/live-data" autocomplete="off" /></label>
-              <label><span>Stock man access key</span><input id="stockmanKeyInput" type="password" placeholder="この端末だけに保存" autocomplete="off" /></label>
+              <label><span>Backend URL</span><input id="backendUrlInput" type="url" inputmode="url" placeholder="https://...workers.dev/api/daily-input" autocomplete="off" /></label>
+              <label><span>Stock man専用アクセスキー</span><input id="stockmanKeyInput" type="password" placeholder="この端末だけに保存" autocomplete="off" /></label>
             </div>
             <div class="row-actions">
               <button id="saveConnectionButton" class="primary-button" type="button">保存して接続テスト</button>
@@ -274,7 +274,7 @@
 
           <section class="settings-group">
             <div class="section-title-row">
-              <div><h2>Automatic Daily Analysis</h2><span class="support-label">毎営業日、最新の日足から候補を再評価</span></div>
+              <div><h2>Automatic Daily Analysis</h2><span class="support-label">無料クラウド・日足の個人分析</span></div>
               <span id="autoEngineBadge" class="status-badge">未接続</span>
             </div>
             <p id="autoEngineDescription" class="body-secondary">最新データの取得元は未接続です。古いDEMOを売買候補に流用しません。</p>
@@ -288,7 +288,7 @@
               <div><strong>ローカルの市場データ</strong><span>前回の取込データを消して自動配信表示に戻します。</span></div>
               <button id="clearLocalMarketButton" class="text-button danger-text" type="button">取込を解除</button>
             </div>
-            <a class="inline-link" href="https://github.com/hiroto1209-sketch/Stock-man/blob/main/docs/AUTOMATIC_DAILY_SETUP.md" target="_blank" rel="noopener noreferrer">入力データ形式・自動更新の設定方法 ↗</a>
+            <a class="inline-link" href="https://github.com/hiroto1209-sketch/Stock-man/blob/main/docs/IPHONE_FREE_SETUP.md" target="_blank" rel="noopener noreferrer">iPhone / iPadだけで無料自動接続する手順 ↗</a>
           </section>
 
           <section class="settings-group">
