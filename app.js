@@ -1,5 +1,7 @@
 const SNAPSHOT_URL = "./data/snapshot.json";
 const GAP_STORAGE_KEY = "stockman-gap-simulator-v1";
+const THEME_KEY = "stockman-theme-v1";
+const ONBOARDING_KEY = "stockman-onboarding-v1";
 
 const FALLBACK = {
   meta: {
@@ -58,7 +60,9 @@ const state = {
   livePayload: null,
   riskConfig: loadRiskConfig(),
   journal: loadJournal(),
-  predictionHistory: loadPredictionHistory()
+  predictionHistory: loadPredictionHistory(),
+  theme: localStorage.getItem(THEME_KEY) || "system",
+  selectedCandidateCode: null
 };
 
 const els = {
@@ -130,12 +134,121 @@ const els = {
   rankFilter: document.querySelector("#rankFilter"),
   sortMode: document.querySelector("#sortMode"),
   resetSimulator: document.querySelector("#resetSimulator"),
-  detailDialog: document.querySelector("#detailDialog"),
   detailContent: document.querySelector("#detailContent"),
-  closeDialog: document.querySelector("#closeDialog")
+  detailBackButton: document.querySelector("#detailBackButton"),
+  appMain: document.querySelector("#appMain"),
+  topDate: document.querySelector("#topDate"),
+  topDataButton: document.querySelector("#topDataButton"),
+  settingsModeButton: document.querySelector("#settingsModeButton"),
+  themeSelect: document.querySelector("#themeSelect"),
+  openJournalButton: document.querySelector("#openJournalButton"),
+  journalDialog: document.querySelector("#journalDialog"),
+  closeJournalButton: document.querySelector("#closeJournalButton"),
+  onboardingDialog: document.querySelector("#onboardingDialog"),
+  closeOnboardingButton: document.querySelector("#closeOnboardingButton"),
+  finishOnboardingButton: document.querySelector("#finishOnboardingButton"),
+  reviewHistoryPanel: document.querySelector("#reviewHistoryPanel"),
+  reviewPerformancePanel: document.querySelector("#reviewPerformancePanel")
 };
 
 
+
+
+function applyTheme() {
+  const allowed = ["system","light","dark"];
+  const theme = allowed.includes(state.theme) ? state.theme : "system";
+  document.documentElement.dataset.theme = theme;
+  if (els.themeSelect) els.themeSelect.value = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+    meta.setAttribute("content", dark ? "#11140f" : "#f8faf5");
+  }
+}
+
+function setTheme(theme) {
+  state.theme = ["system","light","dark"].includes(theme) ? theme : "system";
+  localStorage.setItem(THEME_KEY, state.theme);
+  applyTheme();
+}
+
+function currentRoute() {
+  const raw = (location.hash || "#home").slice(1);
+  if (raw.startsWith("candidate/")) return {name:"detail", code:raw.split("/")[1] || ""};
+  const allowed = ["home","candidates","journal","review","settings"];
+  return {name:allowed.includes(raw) ? raw : "home", code:null};
+}
+
+function updateNavigation(route) {
+  document.querySelectorAll("[data-nav]").forEach(link => {
+    const active = link.dataset.nav === (route.name === "detail" ? "candidates" : route.name);
+    if (active) link.setAttribute("aria-current","page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function applyRoute() {
+  const route = currentRoute();
+  const views = document.querySelectorAll(".app-view");
+  views.forEach(view => view.classList.remove("active"));
+  els.appMain?.classList.remove("detail-split");
+
+  if (route.name === "detail" && route.code) {
+    state.selectedCandidateCode = route.code;
+    renderCandidateDetail(route.code);
+    const detail = document.querySelector("#view-detail");
+    const candidates = document.querySelector("#view-candidates");
+    const expanded = matchMedia("(min-width: 840px)").matches;
+    if (expanded) {
+      candidates?.classList.add("active");
+      detail?.classList.add("active");
+      els.appMain?.classList.add("detail-split");
+    } else {
+      detail?.classList.add("active");
+    }
+  } else {
+    const target = document.querySelector("#view-" + route.name);
+    target?.classList.add("active");
+  }
+
+  updateNavigation(route);
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
+function goTo(hash) {
+  if (location.hash === hash) applyRoute();
+  else location.hash = hash;
+}
+
+function renderTopDate() {
+  if (!els.topDate) return;
+  els.topDate.textContent = new Intl.DateTimeFormat("ja-JP", {
+    timeZone:"Asia/Tokyo", month:"numeric", day:"numeric", weekday:"short"
+  }).format(new Date());
+}
+
+function setReviewTab(tab) {
+  const isHistory = tab !== "performance";
+  els.reviewHistoryPanel?.classList.toggle("hidden", !isHistory);
+  els.reviewPerformancePanel?.classList.toggle("hidden", isHistory);
+  document.querySelectorAll("[data-review-tab]").forEach(btn => {
+    const active = btn.dataset.reviewTab === (isHistory ? "history" : "performance");
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+}
+
+function maybeShowOnboarding() {
+  if (!state.beginnerMode || localStorage.getItem(ONBOARDING_KEY) === "done") return;
+  if (els.onboardingDialog && typeof els.onboardingDialog.showModal === "function" && !els.onboardingDialog.open) {
+    els.onboardingDialog.showModal();
+  }
+}
+
+function finishOnboarding() {
+  localStorage.setItem(ONBOARDING_KEY, "done");
+  els.onboardingDialog?.close();
+}
 
 const JOURNAL_KEY = "stockman-journal-v1";
 const HISTORY_KEY = "stockman-prediction-history-v1";
@@ -713,7 +826,7 @@ function renderCandidates() {
   }).join("");
 
   els.candidateList.querySelectorAll("[data-detail]").forEach(button => {
-    button.addEventListener("click", () => openDetail(button.dataset.detail));
+    button.addEventListener("click", () => goTo("#candidate/" + button.dataset.detail));
   });
 }
 
@@ -724,7 +837,7 @@ function renderSimulator() {
     const gap = Number(state.gaps[c.code] ?? 0);
     const penalty = gapPenalty(gap);
     const tradeScore = adjustedTradeScore(c);
-    const rank = rankFromScore(tradeScore, gap);
+    const rank = displayRank(c);
     return `
       <div class="sim-row">
         <div class="sim-stock">
@@ -759,7 +872,7 @@ function renderSimulator() {
   });
 }
 
-function openDetail(code) {
+function renderCandidateDetail(code) {
   const c = (state.data.candidates || []).find(item => item.code === code);
   if (!c) return;
 
@@ -812,7 +925,7 @@ function openDetail(code) {
     </div>
 
     <div class="metric-card">
-      <small>Premarket adjustment</small>
+      <small>${state.beginnerMode ? "寄り前の調整" : "Premarket adjustment"}</small>
       <strong style="font-size:16px">${gap >= 0 ? "+" : ""}${gap}% gap → -${penalty} pts</strong>
     </div>
 
@@ -820,11 +933,11 @@ function openDetail(code) {
 
     <div class="dual-case">
       <section class="case buy">
-        <h3>WHY BUY</h3>
+        <h3>${state.beginnerMode ? "注目する理由" : "WHY BUY"}</h3>
         <ul>${buyItems}</ul>
       </section>
       <section class="case bear">
-        <h3>WHY NOT BUY</h3>
+        <h3>${state.beginnerMode ? "見送る理由" : "WHY NOT BUY"}</h3>
         <ul>${bearItems}</ul>
       </section>
     </div>
@@ -839,9 +952,6 @@ function openDetail(code) {
     </div>
   `;
 
-  if (typeof els.detailDialog.showModal === "function") {
-    els.detailDialog.showModal();
-  }
 }
 
 
@@ -952,15 +1062,12 @@ function renderDataSources() {
 function applyUxMode() {
   document.body.classList.toggle("beginner-mode", state.beginnerMode);
   document.body.classList.toggle("pro-mode", !state.beginnerMode);
-  if (els.uxModeButton) {
-    els.uxModeButton.textContent = state.beginnerMode ? "はじめてモード ON" : "Proモード";
-    els.uxModeButton.setAttribute("aria-pressed", String(state.beginnerMode));
-  }
-  if (els.beginnerGuide) els.beginnerGuide.classList.toggle("hidden", !state.beginnerMode);
-  const marketTitle = document.querySelector(".market-panel h2");
-  const thesisTitle = document.querySelector(".thesis-panel h2");
-  if (marketTitle) marketTitle.textContent = state.beginnerMode ? "今日の相場の雰囲気" : "地合い";
-  if (thesisTitle) thesisTitle.textContent = state.beginnerMode ? "上がりやすさと、入りやすさは別" : "Prediction ≠ Trade";
+  const label = state.beginnerMode ? "はじめて" : "Pro";
+  [els.uxModeButton, els.settingsModeButton].forEach(button => {
+    if (!button) return;
+    button.textContent = label;
+    button.setAttribute("aria-pressed", String(state.beginnerMode));
+  });
 }
 
 function tutorialChartSvg() {
@@ -1166,6 +1273,7 @@ function freezeCurrentPrediction() {
   savePredictionHistory();
   renderPredictionHistory();
   renderPerformance();
+  applyRoute();
 }
 
 function renderPredictionHistory() {
@@ -1325,6 +1433,7 @@ async function saveJournalFromForm(event) {
   els.journalDateTime.value=jpDateTimeLocalNow();
   renderJournal();
   renderPerformance();
+  if (els.journalDialog?.open) els.journalDialog.close();
 }
 
 function settledPredictionRows() {
@@ -1400,7 +1509,9 @@ function escapeHtml(value) {
 
 function renderAll() {
   if (!state.data) return;
+  applyTheme();
   applyUxMode();
+  renderTopDate();
   renderMeta();
   renderMarket();
   renderTradeReadiness();
@@ -1414,27 +1525,45 @@ function renderAll() {
   renderPerformance();
 }
 
-els.rankFilter.addEventListener("change", event => {
-  state.rankFilter = event.target.value;
-  renderCandidates();
+if (els.rankFilter) {
+  els.rankFilter.addEventListener("change", event => {
+    state.rankFilter = event.target.value;
+    document.querySelectorAll("[data-rank-chip]").forEach(chip => chip.classList.toggle("active", chip.dataset.rankChip === state.rankFilter));
+    renderCandidates();
+  });
+}
+
+document.querySelectorAll("[data-rank-chip]").forEach(chip => {
+  chip.addEventListener("click", () => {
+    state.rankFilter = chip.dataset.rankChip;
+    if (els.rankFilter) els.rankFilter.value = state.rankFilter;
+    document.querySelectorAll("[data-rank-chip]").forEach(item => item.classList.toggle("active", item === chip));
+    renderCandidates();
+  });
 });
 
-els.sortMode.addEventListener("change", event => {
+if (els.sortMode) els.sortMode.addEventListener("change", event => {
   state.sortMode = event.target.value;
   renderCandidates();
 });
 
-els.refreshButton.addEventListener("click", async () => {
+if (els.refreshButton) els.refreshButton.addEventListener("click", async () => {
   await loadSnapshot(true);
   if (state.liveConfig.endpoint && state.liveConfig.key) await connectLiveData(false);
 });
 
 if (els.connectionButton && els.liveConnectionPanel) {
   els.connectionButton.addEventListener("click", () => {
-    els.liveConnectionPanel.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => els.backendUrlInput?.focus(), 350);
+    if (currentRoute().name !== "settings") {
+      goTo("#settings");
+      setTimeout(() => els.liveConnectionPanel?.scrollIntoView({behavior:"smooth",block:"center"}), 160);
+    } else {
+      els.liveConnectionPanel.scrollIntoView({behavior:"smooth",block:"center"});
+    }
   });
 }
+
+if (els.topDataButton) els.topDataButton.addEventListener("click", () => goTo("#settings"));
 
 if (els.backendUrlInput) els.backendUrlInput.value = state.liveConfig.endpoint || "";
 if (els.stockmanKeyInput) els.stockmanKeyInput.value = state.liveConfig.key || "";
@@ -1453,8 +1582,8 @@ if (els.clearConnectionButton) {
     state.liveConfig = { endpoint: "", key: "" };
     state.livePayload = null;
     saveLiveConfig();
-    els.backendUrlInput.value = "";
-    els.stockmanKeyInput.value = "";
+    if (els.backendUrlInput) els.backendUrlInput.value = "";
+    if (els.stockmanKeyInput) els.stockmanKeyInput.value = "";
     setConnectionState("未接続", "接続情報をこの端末から削除しました。", "idle");
   });
 }
@@ -1473,12 +1602,17 @@ if (els.tradeUnitMode) els.tradeUnitMode.addEventListener("change", () => {
   renderDailyPlan();
 });
 
-if (els.uxModeButton) {
-  els.uxModeButton.addEventListener("click", () => {
-    state.beginnerMode = !state.beginnerMode;
-    localStorage.setItem("stockman-beginner-mode", state.beginnerMode ? "on" : "off");
-    renderAll();
-  });
+function toggleUxMode() {
+  state.beginnerMode = !state.beginnerMode;
+  localStorage.setItem("stockman-beginner-mode", state.beginnerMode ? "on" : "off");
+  renderAll();
+}
+if (els.uxModeButton) els.uxModeButton.addEventListener("click", toggleUxMode);
+if (els.settingsModeButton) els.settingsModeButton.addEventListener("click", toggleUxMode);
+
+if (els.themeSelect) {
+  els.themeSelect.value = state.theme;
+  els.themeSelect.addEventListener("change", event => setTheme(event.target.value));
 }
 
 document.querySelectorAll("[data-term]").forEach(button => {
@@ -1488,24 +1622,35 @@ document.querySelectorAll("[data-term]").forEach(button => {
   });
 });
 
-els.resetSimulator.addEventListener("click", () => {
+if (els.resetSimulator) els.resetSimulator.addEventListener("click", () => {
   state.gaps = {};
   saveGaps();
   renderSimulator();
   renderCandidates();
 });
 
-els.closeDialog.addEventListener("click", () => els.detailDialog.close());
-
-els.detailDialog.addEventListener("click", event => {
-  if (event.target === els.detailDialog) els.detailDialog.close();
+if (els.detailBackButton) els.detailBackButton.addEventListener("click", () => {
+  if (history.length > 1) history.back();
+  else goTo("#candidates");
 });
 
-
 if (els.freezeSnapshotButton) els.freezeSnapshotButton.addEventListener("click", freezeCurrentPrediction);
+
+if (els.openJournalButton) els.openJournalButton.addEventListener("click", () => {
+  renderJournal();
+  if (els.journalDialog && typeof els.journalDialog.showModal === "function") els.journalDialog.showModal();
+});
+if (els.closeJournalButton) els.closeJournalButton.addEventListener("click", () => els.journalDialog?.close());
+if (els.journalDialog) els.journalDialog.addEventListener("click", event => { if (event.target === els.journalDialog) els.journalDialog.close(); });
 if (els.journalForm) els.journalForm.addEventListener("submit", saveJournalFromForm);
+
 if (els.exportLocalDataButton) els.exportLocalDataButton.addEventListener("click", exportLocalData);
-if (els.closeOutcomeDialog) els.closeOutcomeDialog.addEventListener("click",()=>els.outcomeDialog.close());
+
+document.querySelectorAll("[data-review-tab]").forEach(button => {
+  button.addEventListener("click", () => setReviewTab(button.dataset.reviewTab));
+});
+
+if (els.closeOutcomeDialog) els.closeOutcomeDialog.addEventListener("click",()=>els.outcomeDialog?.close());
 if (els.outcomeDialog) els.outcomeDialog.addEventListener("click",e=>{if(e.target===els.outcomeDialog)els.outcomeDialog.close();});
 if (els.outcomeForm) els.outcomeForm.addEventListener("submit",event=>{
   event.preventDefault();
@@ -1524,10 +1669,24 @@ if (els.outcomeForm) els.outcomeForm.addEventListener("submit",event=>{
   }
 });
 
+if (els.closeOnboardingButton) els.closeOnboardingButton.addEventListener("click", finishOnboarding);
+if (els.finishOnboardingButton) els.finishOnboardingButton.addEventListener("click", finishOnboarding);
+
+window.addEventListener("hashchange", applyRoute);
+matchMedia("(min-width: 840px)").addEventListener?.("change", applyRoute);
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (state.theme === "system") applyTheme(); });
+
+applyTheme();
+renderTopDate();
+if (!location.hash) history.replaceState(null, "", "#home");
+
 loadSnapshot().then(async () => {
   if (state.liveConfig.endpoint && state.liveConfig.key) {
     await connectLiveData(false);
   } else {
     setConnectionState("未接続", "現在はDEMOです。接続できるまで実取引の価格確認には使用しないでください。", "idle");
   }
+  applyRoute();
+  setReviewTab("history");
+  setTimeout(maybeShowOnboarding, 220);
 });
