@@ -1,392 +1,354 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-theme="system">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#090c10" />
-  <meta name="description" content="Stock man — 日本株の翌営業日候補をPrediction ScoreとTrade Scoreで評価する分析ダッシュボード" />
-  <title>Stock man — Next Session Intelligence</title>
+  <meta name="theme-color" content="#f8faf5" />
+  <meta name="description" content="Stock man — 日本株の売買判断を整理するDecision App" />
+  <title>Stock man</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="noise" aria-hidden="true"></div>
+  <div class="app-shell">
+    <aside class="nav-rail" aria-label="メインナビゲーション">
+      <a class="rail-brand" href="#home" aria-label="Stock man ホーム"><span>S</span></a>
+      <nav class="rail-items">
+        <a href="#home" data-nav="home" aria-label="ホーム"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 19.5z"/></svg><span>ホーム</span></a>
+        <a href="#candidates" data-nav="candidates" aria-label="候補"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg><span>候補</span></a>
+        <a href="#journal" data-nav="journal" aria-label="記録"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l11-11-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg><span>記録</span></a>
+        <a href="#review" data-nav="review" aria-label="検証"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><span>検証</span></a>
+        <a href="#settings" data-nav="settings" aria-label="設定"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg><span>設定</span></a>
+      </nav>
+    </aside>
 
-  <header class="topbar">
-    <a class="brand" href="#" aria-label="Stock man home">
-      <span class="brand-mark">S</span>
-      <span>
+    <header class="top-app-bar">
+      <a class="brand-lockup" href="#home" aria-label="Stock man ホーム">
+        <span class="brand-symbol">S</span>
         <strong>Stock man</strong>
-        <small>Next Session Intelligence</small>
-      </span>
-    </a>
-    <div class="topbar-actions">
-      <button id="uxModeButton" class="pill mode-toggle" type="button" aria-pressed="true">はじめてモード ON</button>
-      <button id="connectionButton" class="pill connection-pill" type="button">日次データ接続</button>
-      <span id="modeBadge" class="pill pill-demo">DEMO</span>
-      <button id="refreshButton" class="button button-secondary" type="button">Refresh snapshot</button>
-    </div>
-  </header>
+      </a>
+      <div class="top-context">
+        <span id="topDate">—</span>
+        <span id="modeBadge" class="status-badge status-demo">DEMO</span>
+      </div>
+      <div class="top-actions">
+        <button id="topDataButton" class="icon-button" type="button" aria-label="データ状態を見る" title="データ状態"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></button>
+        <button id="uxModeButton" class="text-button" type="button" aria-pressed="true">はじめて</button>
+      </div>
+    </header>
 
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">TOMORROW'S EDGE, WITHOUT FORCING A TRADE</p>
-        <h1>上がりそう、だけでは<br><span>買わない。</span></h1>
-        <p class="hero-copy">
-          材料・モメンタム・出来高・相対強度・需給・地合いを統合し、
-          「上昇しそう」と「今この価格で入る価値がある」を分けて評価します。
-        </p>
-      </div>
+    <main id="appMain" class="app-main">
+      <section id="view-home" class="app-view" data-view="home">
+        <div id="freshnessBanner" class="inline-alert hidden" role="status"></div>
 
-      <div class="hero-status glass">
-        <div class="status-row">
-          <span>Analysis phase</span>
-          <strong id="marketSession">—</strong>
-        </div>
-        <div class="status-row">
-          <span>Last updated</span>
-          <strong id="updatedAt">—</strong>
-        </div>
-        <div class="status-row">
-          <span>Next review</span>
-          <strong id="nextReviewAt">—</strong>
-        </div>
-        <div class="status-row">
-          <span>Freshness</span>
-          <strong id="freshnessStatus">—</strong>
-        </div>
-      </div>
-    </section>
+        <section id="tradeReadiness" class="readiness-strip readiness-off" role="status">
+          <div class="readiness-main">
+            <span class="readiness-dot" aria-hidden="true"></span>
+            <div>
+              <span class="support-label">取引準備</span>
+              <strong id="tradeReadinessLabel">OFF</strong>
+            </div>
+          </div>
+          <p id="tradeReadinessMessage">実取引判断にはまだ使用しないでください。</p>
+        </section>
 
-    <section id="freshnessBanner" class="banner hidden" role="status"></section>
-
-    <section id="tradeReadiness" class="trade-readiness readiness-off" role="status">
-      <div>
-        <span class="readiness-dot"></span>
-        <div>
-          <small>TRADE READINESS</small>
-          <strong id="tradeReadinessLabel">OFF</strong>
-        </div>
-      </div>
-      <p id="tradeReadinessMessage">実取引判断にはまだ使用しないでください。</p>
-    </section>
-
-    <section id="beginnerGuide" class="panel beginner-guide">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">60-SECOND GUIDE</p>
-          <h2>まず、この3つだけ見ればOK</h2>
-        </div>
-        <span class="pill">BEGINNER</span>
-      </div>
-      <div class="guide-steps">
-        <article>
-          <span>STEP 1</span>
-          <strong>相場全体を見る</strong>
-          <p>「今日の相場の雰囲気」が悪ければ、無理に取引しない。</p>
-        </article>
-        <article>
-          <span>STEP 2</span>
-          <strong>候補を見る</strong>
-          <p>「上がりやすさ」が高い銘柄と、その理由を確認する。</p>
-        </article>
-        <article>
-          <span>STEP 3</span>
-          <strong>入り方を見る</strong>
-          <p>「今の入りやすさ」と“待つ条件”を確認してから判断する。</p>
-        </article>
-      </div>
-      <div class="glossary-strip" aria-label="用語ヘルプ">
-        <button data-term="地合い">地合い ?</button>
-        <button data-term="GU">GU ?</button>
-        <button data-term="VWAP">VWAP ?</button>
-        <button data-term="出来高">出来高 ?</button>
-        <button data-term="PTS">PTS ?</button>
-        <button data-term="SOX">SOX ?</button>
-      </div>
-      <div id="termHelp" class="term-help">分からない言葉をタップすると、ここに簡単な説明が出ます。</div>
-    </section>
-
-    <section class="panel data-center">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">DATA STATUS</p>
-          <h2>この情報は今どこまで新しい？</h2>
-        </div>
-        <span class="pill">IMPORTANT</span>
-      </div>
-      <p class="muted">「LIVE」「15分遅れ」「日次」「DEMO」を区別します。緑色だから全部リアルタイム、という表示にはしません。</p>
-      <div id="dataSourceStatus" class="data-source-grid"></div>
-    </section>
-
-    <section id="liveConnectionPanel" class="panel live-connection">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">PRIVATE DATA BRIDGE</p>
-          <h2>本物の日次データへ接続</h2>
-        </div>
-        <span id="liveConnectionStatus" class="pill">未接続</span>
-      </div>
-      <p class="muted">
-        J-QuantsのAPIキーはこの画面には入力しません。サーバー側に隠し、
-        このiPhoneからはStock man専用アクセスキーだけで接続します。
-      </p>
-      <div class="connect-grid">
-        <label>
-          <span>Backend URL</span>
-          <input id="backendUrlInput" type="url" inputmode="url" placeholder="https://...vercel.app/api/live-data" autocomplete="off" />
-        </label>
-        <label>
-          <span>Stock man access key</span>
-          <input id="stockmanKeyInput" type="password" placeholder="この端末だけに保存" autocomplete="off" />
-        </label>
-      </div>
-      <div class="connect-actions">
-        <button id="saveConnectionButton" class="button" type="button">保存して接続テスト</button>
-        <button id="clearConnectionButton" class="button button-secondary" type="button">接続情報を消す</button>
-      </div>
-      <div id="liveConnectionMessage" class="connection-message">
-        現在はDEMOです。接続できるまで実取引の価格確認には使用しないでください。
-      </div>
-    </section>
-
-    <section class="panel risk-center">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">RISK FIRST</p>
-          <h2>先に「いくら負けてもいいか」を決める</h2>
-        </div>
-        <span class="pill">LOCAL ONLY</span>
-      </div>
-      <p class="muted">入力値はこの端末のブラウザだけに保存します。GitHubへは送信しません。</p>
-      <div class="risk-input-grid">
-        <label><span>運用資金</span><div class="money-input"><span>¥</span><input id="capitalInput" type="number" min="0" step="1000" placeholder="100000" /></div></label>
-        <label><span>1回の許容損失</span><div class="percent-input"><input id="riskPctInput" type="number" min="0.1" max="5" step="0.1" value="1" /><span>%</span></div></label>
-        <label><span>想定ストップ幅</span><div class="percent-input"><input id="stopPctInput" type="number" min="0.5" max="20" step="0.5" value="3" /><span>%</span></div></label>
-        <label><span>計算する銘柄</span><select id="riskCandidateSelect"></select></label>
-        <label><span>取引単位</span>
-          <select id="tradeUnitMode">
-            <option value="standard">100株単元のみ</option>
-            <option value="odd">単元未満株も利用</option>
-          </select>
-        </label>
-      </div>
-      <div id="riskResults" class="risk-results"></div>
-      <p class="risk-footnote">※ 日本株は通常100株単元です。単元未満株の取扱い・約定方式は証券会社ごとに異なるため、実注文前に証券アプリ側で確認してください。</p>
-    </section>
-
-    <section class="grid-two">
-      <article class="panel market-panel">
-        <div class="panel-head">
+        <section class="home-header">
           <div>
-            <p class="eyebrow">MARKET REGIME</p>
-            <h2>地合い</h2>
+            <span class="support-label">今日の判断</span>
+            <h1>おはようございます。</h1>
+            <p>相場 → 候補 → 入り方の順で確認します。</p>
           </div>
-          <div class="regime-score">
-            <span id="regimeStatus">—</span>
-            <strong id="regimeScore">—</strong>
-          </div>
-        </div>
-        <p id="regimeNote" class="muted"></p>
-        <div id="marketIndicators" class="indicator-grid"></div>
-      </article>
+          <button id="refreshButton" class="icon-button tonal" type="button" aria-label="データを更新" title="更新"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6v5h-5"/><path d="M19 11a8 8 0 1 0 1 5"/></svg></button>
+        </section>
 
-      <article class="panel thesis-panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">DECISION MODEL</p>
-            <h2>Prediction ≠ Trade</h2>
-          </div>
-        </div>
-        <div class="equation">
-          <div>
-            <small>Prediction Score</small>
-            <strong>材料 × 強さ</strong>
-          </div>
-          <span>→</span>
-          <div>
-            <small>Entry adjustment</small>
-            <strong>GU / 需給 / 確認</strong>
-          </div>
-          <span>→</span>
-          <div>
-            <small>Trade Score</small>
-            <strong>今、入る価値</strong>
-          </div>
-        </div>
-        <p class="muted">
-          予想が当たっていても、寄り付きが過熱していれば見送る。
-          Stock man は <b>NO TRADE</b> を正解として扱います。
-        </p>
-      </article>
-    </section>
+        <section class="home-grid">
+          <article class="surface-card market-panel">
+            <div class="section-title-row">
+              <div>
+                <span class="support-label">今日の相場</span>
+                <h2>相場の雰囲気</h2>
+              </div>
+              <div class="regime-score">
+                <span id="regimeStatus">—</span>
+                <strong id="regimeScore">—</strong>
+              </div>
+            </div>
+            <p id="regimeNote" class="body-secondary"></p>
+            <div id="marketIndicators" class="indicator-grid compact"></div>
+          </article>
 
-    <section class="panel daily-plan">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">DAILY TRADING PLAN</p>
-          <h2>今日、60秒で見る画面</h2>
-        </div>
-        <div class="plan-actions">
-          <span id="dailyPlanMode" class="pill">—</span>
-          <button id="freezeSnapshotButton" class="button button-secondary" type="button">現在の予測を固定保存</button>
-        </div>
-      </div>
-      <div id="dailyPlanSummary" class="daily-plan-summary"></div>
-      <div id="dailyPlanCandidates" class="daily-plan-candidates"></div>
-      <p class="risk-footnote">固定保存した予測部分はアプリ上から編集できません。結果だけを後から追記して検証します。</p>
-    </section>
+          <article class="surface-card data-glance">
+            <div class="section-title-row">
+              <div>
+                <span class="support-label">データ状態</span>
+                <h2>いつの情報？</h2>
+              </div>
+              <a class="inline-link" href="#settings">詳細</a>
+            </div>
+            <dl class="meta-list">
+              <div><dt>更新</dt><dd id="updatedAt">—</dd></div>
+              <div><dt>次回確認</dt><dd id="nextReviewAt">—</dd></div>
+              <div><dt>鮮度</dt><dd id="freshnessStatus">—</dd></div>
+              <div><dt>フェーズ</dt><dd id="marketSession">—</dd></div>
+            </dl>
+          </article>
+        </section>
 
-    <section class="rankings-section">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">NEXT SESSION RANKING</p>
-          <h2>候補ランキング</h2>
-        </div>
-        <div class="toolbar">
-          <label>
-            Rank
-            <select id="rankFilter">
-              <option value="ALL">ALL</option>
-              <option value="S">S</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="NO TRADE">NO TRADE</option>
-            </select>
-          </label>
-          <label>
-            Sort
+        <section class="daily-plan home-daily-plan">
+          <div class="section-title-row">
+            <div>
+              <span class="support-label">今日の候補</span>
+              <h2>まず見る3銘柄</h2>
+            </div>
+            <a class="inline-link" href="#candidates">すべて見る</a>
+          </div>
+          <div id="dailyPlanSummary" class="daily-plan-summary"></div>
+          <div id="dailyPlanCandidates" class="daily-plan-candidates"></div>
+          <div class="plan-footer">
+            <span id="dailyPlanMode" class="status-badge">—</span>
+            <button id="freezeSnapshotButton" class="text-button" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>予測を固定保存</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="view-candidates" class="app-view" data-view="candidates">
+        <header class="view-header">
+          <div>
+            <span class="support-label">候補</span>
+            <h1>次の営業日を準備する</h1>
+            <p>スコアより「今どうする？」を優先して見ます。</p>
+          </div>
+        </header>
+
+        <div class="candidate-toolbar">
+          <div class="filter-chips" aria-label="ランクで絞り込み">
+            <button class="filter-chip active" type="button" data-rank-chip="ALL">すべて</button>
+            <button class="filter-chip" type="button" data-rank-chip="S">S</button>
+            <button class="filter-chip" type="button" data-rank-chip="A">A</button>
+            <button class="filter-chip" type="button" data-rank-chip="B">B</button>
+            <button class="filter-chip" type="button" data-rank-chip="NO TRADE">見送り</button>
+          </div>
+          <label class="sort-control">
+            <span>並び順</span>
             <select id="sortMode">
-              <option value="trade">Trade Score</option>
-              <option value="prediction">Prediction Score</option>
-              <option value="code">Code</option>
+              <option value="trade">今の入りやすさ</option>
+              <option value="prediction">上がりやすさ</option>
+              <option value="code">証券コード</option>
             </select>
           </label>
-        </div>
-      </div>
-
-      <div id="candidateList" class="candidate-list" aria-live="polite"></div>
-    </section>
-
-    <section class="simulator panel">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">PRE-MARKET SIMULATOR</p>
-          <h2>寄り前ギャップを入れて再判定</h2>
-        </div>
-        <button id="resetSimulator" class="button button-secondary" type="button">Reset</button>
-      </div>
-      <p class="muted">
-        予想スコアはそのままでも、GUが大きいほどエントリー期待値は下がります。
-        マイナスギャップは自動加点しません。
-      </p>
-      <div id="simulatorList" class="simulator-list"></div>
-    </section>
-
-    <section class="panel journal-panel">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">TRADE JOURNAL</p>
-          <h2>勝ち負けより「ルールを守れたか」を残す</h2>
-        </div>
-        <span class="pill">LOCAL ONLY</span>
-      </div>
-      <form id="journalForm" class="journal-form">
-        <label><span>銘柄</span><select id="journalCode"></select></label>
-        <label><span>日時</span><input id="journalDateTime" type="datetime-local" /></label>
-        <label><span>Entry</span><input id="journalEntry" type="number" min="0" step="0.1" placeholder="例 2800" /></label>
-        <label><span>Exit</span><input id="journalExit" type="number" min="0" step="0.1" placeholder="未決済なら空欄" /></label>
-        <label><span>株数</span><input id="journalShares" type="number" min="1" step="1" placeholder="例 10" /></label>
-        <label><span>ルールを守れた？</span>
-          <select id="journalRule">
-            <option value="yes">守れた</option>
-            <option value="partial">一部守れなかった</option>
-            <option value="no">守れなかった</option>
+          <select id="rankFilter" class="visually-hidden" aria-hidden="true" tabindex="-1">
+            <option value="ALL">ALL</option><option value="S">S</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="NO TRADE">NO TRADE</option>
           </select>
-        </label>
-        <label class="journal-wide"><span>Entry理由</span><textarea id="journalEntryReason" rows="3" placeholder="なぜ入った？ 条件は成立していた？"></textarea></label>
-        <label class="journal-wide"><span>Exit理由</span><textarea id="journalExitReason" rows="3" placeholder="なぜ出た？ 損切り・利確ルールは守れた？"></textarea></label>
-        <label class="journal-wide"><span>反省・学び</span><textarea id="journalReflection" rows="3" placeholder="次回1つだけ変えるなら？"></textarea></label>
-        <label class="journal-wide"><span>スクリーンショット（端末内のみ）</span><input id="journalScreenshot" type="file" accept="image/*" /></label>
-        <div class="journal-wide journal-actions">
-          <button class="button" type="submit">取引記録を保存</button>
-          <button id="exportLocalDataButton" class="button button-secondary" type="button">記録をJSONでバックアップ</button>
         </div>
-      </form>
-      <div id="journalList" class="journal-list"></div>
-    </section>
 
-    <section class="panel prediction-history">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">PREDICTION HISTORY</p>
-          <h2>予測を先に固定し、結果は後から追記</h2>
+        <div class="candidate-layout">
+          <div class="candidate-master">
+            <div id="candidateList" class="candidate-list" aria-live="polite"></div>
+
+            <details class="advanced-section">
+              <summary>寄り前シミュレーター</summary>
+              <div class="advanced-content">
+                <p class="body-secondary">高く始まりすぎた銘柄は、今の入りやすさを下げます。</p>
+                <button id="resetSimulator" class="text-button" type="button">入力をリセット</button>
+                <div id="simulatorList" class="simulator-list"></div>
+              </div>
+            </details>
+          </div>
+          <aside id="desktopDetailPlaceholder" class="detail-placeholder">
+            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V7a2 2 0 0 1 4 0v4-2a2 2 0 0 1 4 0v3-1a2 2 0 0 1 4 0v4c0 4-3 7-7 7h-1c-3 0-5-1-7-4l-3-4a2 2 0 0 1 3-3l3 3"/></svg></div>
+            <strong>銘柄を選択</strong>
+            <p>詳細・チャート・見送り条件をここで確認できます。</p>
+          </aside>
         </div>
-        <span id="historyCount" class="pill">0 SNAPSHOTS</span>
-      </div>
-      <div id="historyList" class="history-list"></div>
-    </section>
+      </section>
 
-    <section class="panel performance-panel">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">PERFORMANCE</p>
-          <h2>実績が貯まるまで、成績は作らない</h2>
+      <section id="view-detail" class="app-view detail-view" data-view="detail">
+        <header class="detail-app-bar">
+          <button id="detailBackButton" class="icon-button" type="button" aria-label="候補一覧へ戻る"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span>銘柄詳細</span>
+        </header>
+        <div id="detailContent" class="detail-content"></div>
+      </section>
+
+      <section id="view-journal" class="app-view" data-view="journal">
+        <header class="view-header with-action">
+          <div>
+            <span class="support-label">記録</span>
+            <h1>取引記録</h1>
+            <p>勝敗より、ルールを守れたかを残します。</p>
+          </div>
+          <button id="openJournalButton" class="primary-button" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>取引を記録</button>
+        </header>
+        <div id="journalList" class="journal-list"></div>
+      </section>
+
+      <section id="view-review" class="app-view" data-view="review">
+        <header class="view-header">
+          <div>
+            <span class="support-label">検証</span>
+            <h1>予測と結果を分けて見る</h1>
+            <p>結果が分かった後に、予測を書き換えません。</p>
+          </div>
+        </header>
+
+        <div class="segmented-control" role="tablist" aria-label="検証表示">
+          <button class="active" type="button" role="tab" aria-selected="true" data-review-tab="history">予測履歴</button>
+          <button type="button" role="tab" aria-selected="false" data-review-tab="performance">成績</button>
         </div>
-        <span class="pill">REAL RECORDS ONLY</span>
-      </div>
-      <div id="performanceContent"></div>
-    </section>
 
-    <section class="panel audit-panel">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">AUDIT READY</p>
-          <h2>的中率を後から書き換えない</h2>
+        <section id="reviewHistoryPanel" class="review-panel">
+          <div class="section-title-row">
+            <h2>予測履歴</h2>
+            <span id="historyCount" class="status-badge">0 SNAPSHOTS</span>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+
+        <section id="reviewPerformancePanel" class="review-panel hidden">
+          <div class="section-title-row"><h2>成績</h2><span class="status-badge">REAL ONLY</span></div>
+          <div id="performanceContent"></div>
+        </section>
+      </section>
+
+      <section id="view-settings" class="app-view" data-view="settings">
+        <header class="view-header">
+          <div>
+            <span class="support-label">設定</span>
+            <h1>Stock manを自分用に</h1>
+            <p>表示・資金・データ接続をここにまとめます。</p>
+          </div>
+        </header>
+
+        <div class="settings-list">
+          <section class="settings-group">
+            <h2>表示</h2>
+            <div class="setting-row">
+              <div><strong>表示モード</strong><span>初心者向け / Pro表示を切り替えます。</span></div>
+              <button id="settingsModeButton" class="text-button" type="button">はじめて</button>
+            </div>
+            <label class="setting-row">
+              <div><strong>テーマ</strong><span>端末設定に合わせることもできます。</span></div>
+              <select id="themeSelect">
+                <option value="system">システム</option>
+                <option value="light">ライト</option>
+                <option value="dark">ダーク</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="settings-group risk-center">
+            <div class="section-title-row"><h2>資金管理</h2><span class="status-badge">端末内のみ</span></div>
+            <div class="settings-fields risk-input-grid">
+              <label><span>運用資金</span><div class="money-input"><span>¥</span><input id="capitalInput" type="number" min="0" step="1000" placeholder="100000" /></div></label>
+              <label><span>1回の許容損失</span><div class="percent-input"><input id="riskPctInput" type="number" min="0.1" max="5" step="0.1" value="1" /><span>%</span></div></label>
+              <label><span>想定ストップ幅</span><div class="percent-input"><input id="stopPctInput" type="number" min="0.5" max="20" step="0.5" value="3" /><span>%</span></div></label>
+              <label><span>計算する銘柄</span><select id="riskCandidateSelect"></select></label>
+              <label><span>取引単位</span><select id="tradeUnitMode"><option value="standard">100株単元のみ</option><option value="odd">単元未満株も利用</option></select></label>
+            </div>
+            <div id="riskResults" class="risk-results"></div>
+            <p class="helper-text">単元未満株の注文条件は証券会社で最終確認してください。</p>
+          </section>
+
+          <section class="settings-group data-center">
+            <div class="section-title-row">
+              <h2>データ状態</h2>
+              <button id="connectionButton" class="text-button" type="button">接続設定へ</button>
+            </div>
+            <div id="dataSourceStatus" class="data-source-grid"></div>
+          </section>
+
+          <section id="liveConnectionPanel" class="settings-group live-connection">
+            <div class="section-title-row"><h2>日次データ接続</h2><span id="liveConnectionStatus" class="status-badge">未接続</span></div>
+            <p class="body-secondary">J-QuantsのAPIキーはブラウザに置かず、Private Backend側に保存します。</p>
+            <div class="settings-fields connect-grid">
+              <label><span>Backend URL</span><input id="backendUrlInput" type="url" inputmode="url" placeholder="https://.../api/live-data" autocomplete="off" /></label>
+              <label><span>Stock man access key</span><input id="stockmanKeyInput" type="password" placeholder="この端末だけに保存" autocomplete="off" /></label>
+            </div>
+            <div class="row-actions">
+              <button id="saveConnectionButton" class="primary-button" type="button">保存して接続テスト</button>
+              <button id="clearConnectionButton" class="text-button danger-text" type="button">接続情報を消す</button>
+            </div>
+            <div id="liveConnectionMessage" class="connection-message">現在はDEMOです。</div>
+          </section>
+
+          <section class="settings-group">
+            <h2>データ管理</h2>
+            <div class="setting-row">
+              <div><strong>ローカル記録</strong><span>Journal・予測履歴・リスク設定をJSONで保存します。</span></div>
+              <button id="exportLocalDataButton" class="text-button" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M5 20h14"/></svg>バックアップ</button>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h2>このアプリについて</h2>
+            <div class="about-copy">
+              <strong>上がりそう、だけでは買わない。</strong>
+              <p>Stock manは、良いトレードだけを残し、悪いトレードを減らすための判断支援ツールです。</p>
+              <span>UI v0.5 · Material 3 inspired</span>
+            </div>
+          </section>
         </div>
-        <span class="pill">ROADMAP</span>
-      </div>
-      <div class="audit-grid">
-        <div><strong>01</strong><span>寄り前スナップショット保存</span></div>
-        <div><strong>02</strong><span>始値・高値・安値・終値を記録</span></div>
-        <div><strong>03</strong><span>Sランク勝率・平均値幅を計測</span></div>
-        <div><strong>04</strong><span>モデルバージョン別に検証</span></div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
 
-  <footer>
-    <p>
-      Stock man is an analytical prototype. It does not guarantee future prices or investment results.
-      Demo data must not be treated as live market data.
-    </p>
-  </footer>
+    <nav class="bottom-nav" aria-label="メインナビゲーション">
+      <a href="#home" data-nav="home"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 19.5z"/></svg><span>ホーム</span></a>
+      <a href="#candidates" data-nav="candidates"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg><span>候補</span></a>
+      <a href="#journal" data-nav="journal"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l11-11-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg><span>記録</span></a>
+      <a href="#review" data-nav="review"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><span>検証</span></a>
+      <a href="#settings" data-nav="settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg><span>設定</span></a>
+    </nav>
+  </div>
 
-  <dialog id="detailDialog">
-    <div class="dialog-shell">
-      <button id="closeDialog" class="dialog-close" aria-label="Close">×</button>
-      <div id="detailContent"></div>
+  <dialog id="onboardingDialog" class="sheet-dialog">
+    <div id="beginnerGuide" class="sheet-content beginner-guide">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="section-title-row"><div><span class="support-label">はじめてのStock man</span><h2>見る順番は3つだけ</h2></div><button id="closeOnboardingButton" class="icon-button" type="button" aria-label="閉じる"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <ol class="onboarding-steps">
+        <li><span>1</span><div><strong>相場を見る</strong><p>弱い日は、無理に取引しません。</p></div></li>
+        <li><span>2</span><div><strong>候補を見る</strong><p>上がりやすさより「今どうする？」を確認します。</p></div></li>
+        <li><span>3</span><div><strong>証券アプリで最終確認</strong><p>現在値・板・スプレッドを確認してから判断します。</p></div></li>
+      </ol>
+      <div class="glossary-strip" aria-label="用語ヘルプ">
+        <button data-term="地合い">地合い ?</button><button data-term="GU">GU ?</button><button data-term="VWAP">VWAP ?</button><button data-term="出来高">出来高 ?</button><button data-term="PTS">PTS ?</button><button data-term="SOX">SOX ?</button>
+      </div>
+      <div id="termHelp" class="term-help">分からない言葉をタップすると説明します。</div>
+      <button id="finishOnboardingButton" class="primary-button full-width" type="button">わかった</button>
     </div>
   </dialog>
 
-  <dialog id="outcomeDialog">
-    <form id="outcomeForm" class="dialog-shell">
-      <button id="closeOutcomeDialog" class="dialog-close" type="button" aria-label="Close">×</button>
-      <div class="detail-header">
-        <span class="code">OUTCOME APPEND ONLY</span>
-        <h2 id="outcomeTitle">翌営業日の結果</h2>
-        <p class="muted">予測内容は変更せず、実際のOHLCだけを追記します。</p>
+  <dialog id="journalDialog" class="sheet-dialog">
+    <form id="journalForm" class="sheet-content journal-form">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="section-title-row"><div><span class="support-label">記録</span><h2>取引を記録</h2></div><button id="closeJournalButton" class="icon-button" type="button" aria-label="閉じる"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <label><span>銘柄</span><select id="journalCode"></select></label>
+      <label><span>日時</span><input id="journalDateTime" type="datetime-local" /></label>
+      <div class="form-grid-3">
+        <label><span>Entry</span><input id="journalEntry" type="number" min="0" step="0.1" placeholder="2800" /></label>
+        <label><span>Exit</span><input id="journalExit" type="number" min="0" step="0.1" placeholder="未決済" /></label>
+        <label><span>株数</span><input id="journalShares" type="number" min="1" step="1" placeholder="10" /></label>
       </div>
-      <input id="outcomeHistoryId" type="hidden" />
-      <input id="outcomeCode" type="hidden" />
+      <label><span>ルールを守れた？</span><select id="journalRule"><option value="yes">守れた</option><option value="partial">一部守れなかった</option><option value="no">守れなかった</option></select></label>
+      <label><span>Entry理由</span><textarea id="journalEntryReason" rows="3" placeholder="条件は成立していた？"></textarea></label>
+      <label><span>Exit理由</span><textarea id="journalExitReason" rows="3" placeholder="損切り・利確ルールは守れた？"></textarea></label>
+      <label><span>反省・学び</span><textarea id="journalReflection" rows="3" placeholder="次回1つだけ変えるなら？"></textarea></label>
+      <label><span>スクリーンショット（端末内のみ）</span><input id="journalScreenshot" type="file" accept="image/*" /></label>
+      <button class="primary-button full-width" type="submit">保存</button>
+    </form>
+  </dialog>
+
+  <dialog id="outcomeDialog" class="sheet-dialog">
+    <form id="outcomeForm" class="sheet-content">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="section-title-row"><div><span class="support-label">結果を追記</span><h2 id="outcomeTitle">翌営業日の結果</h2></div><button id="closeOutcomeDialog" class="icon-button" type="button" aria-label="閉じる"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <p class="body-secondary">予測内容は変更せず、実際のOHLCだけを追記します。</p>
+      <input id="outcomeHistoryId" type="hidden" /><input id="outcomeCode" type="hidden" />
       <div class="outcome-grid">
         <label><span>Open</span><input id="outcomeOpen" type="number" min="0" step="0.1" required /></label>
         <label><span>High</span><input id="outcomeHigh" type="number" min="0" step="0.1" required /></label>
         <label><span>Low</span><input id="outcomeLow" type="number" min="0" step="0.1" required /></label>
         <label><span>Close</span><input id="outcomeClose" type="number" min="0" step="0.1" required /></label>
       </div>
-      <button class="button" type="submit">結果を追記する</button>
+      <button class="primary-button full-width" type="submit">結果を追記</button>
       <p id="outcomeError" class="form-error hidden"></p>
     </form>
   </dialog>
