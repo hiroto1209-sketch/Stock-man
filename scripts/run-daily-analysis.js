@@ -37,6 +37,26 @@ async function main(){
   }
   fs.mkdirSync(path.dirname(outFile),{recursive:true});
   fs.writeFileSync(outFile,JSON.stringify(result,null,2)+"\n");
+  // Immutable checkpoint archives are created only with licensed usable data.
+  if(result.meta.mode==="AUTO_DAILY"&&result.candidates.length>0){
+    const parts=new Intl.DateTimeFormat("en-GB",{
+      timeZone:"Asia/Tokyo",hour:"2-digit",hour12:false
+    }).formatToParts(new Date(timestamp));
+    const hour=Number(parts.find(x=>x.type==="hour")?.value||0);
+    const day=new Intl.DateTimeFormat("en-CA",{
+      timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"
+    }).format(new Date(timestamp));
+    const checkpoint=hour<12?"PREMARKET":"POST_CLOSE";
+    const dir=path.join(root,"data","history");
+    const filename=path.join(dir,day+"-"+checkpoint+".json");
+    fs.mkdirSync(dir,{recursive:true});
+    if(!fs.existsSync(filename)){
+      fs.writeFileSync(filename,JSON.stringify(result,null,2)+"\n",{flag:"wx"});
+      console.log("Frozen licensed checkpoint:",day,checkpoint);
+    }else{
+      console.log("Checkpoint already exists; never overwriting:",day,checkpoint);
+    }
+  }
   process.stdout.write("Daily analysis: "+JSON.stringify({
     mode:result.meta.mode,asOf:result.meta.dataAsOf,
     generatedAt:result.meta.generatedAt,count:result.candidates.length,
