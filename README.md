@@ -156,3 +156,31 @@ The free-mode build now prioritizes process over data quantity:
 
 No synthetic performance is displayed.
 DEMO prediction snapshots are excluded from performance statistics.
+
+
+## UI v0.5 — Material 3 inspired app architecture
+
+The interface was re-architected from one long dashboard into five destinations:
+
+- Home
+- Candidates
+- Journal
+- Review
+- Settings
+
+Key UI changes:
+
+- compact Bottom Navigation on iPhone
+- Navigation Rail on medium/large screens
+- hash routing with browser back/forward support
+- candidate detail as a real route instead of a modal
+- expanded desktop candidate/detail two-pane layout
+- System / Light / Dark themes
+- Material 3-inspired semantic color tokens and surface hierarchy
+- one-time beginner onboarding instead of a permanent tutorial block
+- journal form moved into a bottom sheet/dialog
+- History and Performance separated with tabs
+- API/risk configuration moved out of the daily home screen
+- neon/glass/marketing-hero visual language removed
+
+Existing localStorage keys and analysis logic were intentionally preserved.
