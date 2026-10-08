@@ -1,5 +1,20 @@
 # Stock man
 
+## iPhone/iPad only — private free cloud daily feed (v1.1)
+
+A personal Cloudflare Workers Free connector is now included:
+
+- `cloudflare/worker.js` — authorized `/api/daily-input`, Alpha Vantage day-bars, private KV cache.
+- `wrangler.jsonc` — deploy config and schedules at 20:27/08:37 JST.
+- `tests/cloudflare-worker.test.js` — authentication, cache and no-fabrication safety checks.
+- `docs/IPHONE_FREE_SETUP.md` — step-by-step setup in iPhone/iPad Safari.
+
+**Not yet deployed:** user's Cloudflare account, KV binding, Alpha Vantage key and personal Stock man access key must still be configured. The app shows `UNAVAILABLE` unless valid authorized daily data exists. Japanese stock symbol coverage depends on Alpha Vantage; it is not guaranteed. This is a maximum-five-stock private watchlist analysis and is not a full Japanese-stock market scanner. No live board/PTS and no broker order placement.
+
+[**iPhoneだけの無料セットアップ手順**](docs/IPHONE_FREE_SETUP.md)
+
+
+
 
 ## Automatic Daily Analysis Engine v1
 
