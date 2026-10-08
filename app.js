@@ -40,6 +40,8 @@ const FALLBACK = {
   }))
 };
 
+let activeInteractiveChart = null;
+
 const componentLabels = {
   catalyst: "Catalyst",
   momentum: "Momentum",
@@ -190,6 +192,7 @@ function updateNavigation(route) {
 
 function applyRoute() {
   const route = currentRoute();
+  if (route.name !== "detail") destroyInteractiveChart();
   const views = document.querySelectorAll(".app-view");
   views.forEach(view => view.classList.remove("active"));
   els.appMain?.classList.remove("detail-split");
@@ -982,6 +985,7 @@ function renderCandidateDetail(code) {
       </div>
     </details>
   `;
+  requestAnimationFrame(() => mountInteractiveChart(c));
 }
 
 
@@ -1209,8 +1213,139 @@ function realCandleSvg(candles) {
     '<div class="chart-legend"><span><i class="legend-sma5"></i>5日平均</span><span><i class="legend-sma20"></i>20日平均</span><span><i class="legend-volume"></i>出来高</span><span>破線: 前日終値</span></div>';
 }
 
+function tradingViewSymbolUrl(code) {
+  const clean = String(code || "").replace(/[^0-9]/g,"");
+  return "https://jp.tradingview.com/symbols/TSE-" + encodeURIComponent(clean) + "/";
+}
+
+function cssColor(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function normalizeChartBars(candles) {
+  if (!Array.isArray(candles)) return [];
+  const byDay = new Map();
+  candles.forEach(row => {
+    const time = String(row?.time || "").slice(0,10);
+    const open=Number(row?.open), high=Number(row?.high), low=Number(row?.low), close=Number(row?.close);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(time)) return;
+    if (![open,high,low,close].every(Number.isFinite)) return;
+    byDay.set(time,{
+      time,open,high,low,close,
+      volume:Number.isFinite(Number(row?.volume)) ? Number(row.volume) : null
+    });
+  });
+  return [...byDay.values()].sort((a,b)=>a.time.localeCompare(b.time));
+}
+
+function movingAverageData(bars, period) {
+  const out=[];
+  for (let i=period-1;i<bars.length;i++) {
+    let sum=0, valid=true;
+    for (let j=i-period+1;j<=i;j++) {
+      const value=Number(bars[j].close);
+      if (!Number.isFinite(value)) { valid=false; break; }
+      sum+=value;
+    }
+    if (valid) out.push({time:bars[i].time,value:Math.round((sum/period)*100)/100});
+  }
+  return out;
+}
+
+function destroyInteractiveChart() {
+  if (!activeInteractiveChart) return;
+  try { activeInteractiveChart.observer?.disconnect(); } catch {}
+  try { activeInteractiveChart.chart?.remove(); } catch {}
+  activeInteractiveChart=null;
+}
+
+function mountInteractiveChart(candidate) {
+  destroyInteractiveChart();
+
+  const container=document.querySelector("#interactiveChart");
+  if (!container) return;
+
+  const bars=normalizeChartBars(candidate.candles);
+  if (bars.length<2 || !window.LightweightCharts) {
+    container.innerHTML=realCandleSvg(candidate.candles);
+    container.classList.add("chart-fallback");
+    return;
+  }
+
+  const surface=cssColor("--md-sys-color-surface-container-lowest","#ffffff");
+  const text=cssColor("--md-sys-color-on-surface-variant","#555");
+  const grid=cssColor("--md-sys-color-outline-variant","#ddd");
+  const up=cssColor("--md-sys-color-primary","#3b6934");
+  const down=cssColor("--md-sys-color-error","#ba1a1a");
+  const sma5Color="#4f6fae";
+  const sma20Color="#9a7510";
+
+  const chart=LightweightCharts.createChart(container,{
+    width:Math.max(280,container.clientWidth || 620),
+    height:Math.max(300,Math.min(430,(container.clientWidth || 620)*0.62)),
+    layout:{
+      background:{type:"solid",color:surface},
+      textColor:text,
+      attributionLogo:true
+    },
+    grid:{
+      vertLines:{color:grid,style:1,visible:true},
+      horzLines:{color:grid,style:1,visible:true}
+    },
+    rightPriceScale:{borderColor:grid},
+    timeScale:{borderColor:grid,timeVisible:false,secondsVisible:false,rightOffset:2,barSpacing:7},
+    crosshair:{mode:LightweightCharts.CrosshairMode?.Normal ?? 0},
+    handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+    handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true}
+  });
+
+  const candle=chart.addSeries(LightweightCharts.CandlestickSeries,{
+    upColor:up,downColor:down,borderVisible:false,wickUpColor:up,wickDownColor:down,
+    priceLineVisible:true,lastValueVisible:true
+  });
+  candle.setData(bars.map(({time,open,high,low,close})=>({time,open,high,low,close})));
+  candle.priceScale().applyOptions({scaleMargins:{top:.08,bottom:.28}});
+
+  const volumeRows=bars.filter(b=>Number.isFinite(b.volume)).map(b=>({
+    time:b.time,value:b.volume,color:b.close>=b.open ? up+"66" : down+"66"
+  }));
+  if (volumeRows.length) {
+    const volume=chart.addSeries(LightweightCharts.HistogramSeries,{
+      priceFormat:{type:"volume"},priceScaleId:"",lastValueVisible:false,priceLineVisible:false
+    });
+    volume.setData(volumeRows);
+    volume.priceScale().applyOptions({scaleMargins:{top:.78,bottom:0}});
+  }
+
+  const sma5=movingAverageData(bars,5);
+  if (sma5.length) {
+    const line5=chart.addSeries(LightweightCharts.LineSeries,{
+      color:sma5Color,lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false
+    });
+    line5.setData(sma5);
+  }
+  const sma20=movingAverageData(bars,20);
+  if (sma20.length) {
+    const line20=chart.addSeries(LightweightCharts.LineSeries,{
+      color:sma20Color,lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false
+    });
+    line20.setData(sma20);
+  }
+
+  chart.timeScale().fitContent();
+
+  const observer=new ResizeObserver(entries=>{
+    const width=Math.floor(entries[0]?.contentRect?.width || 0);
+    if (width>0) chart.applyOptions({width,height:Math.max(300,Math.min(430,width*.62))});
+  });
+  observer.observe(container);
+  activeInteractiveChart={chart,observer};
+}
+
 function chartSection(candidate) {
-  const hasReal = Array.isArray(candidate.candles) && candidate.candles.length >= 2;
+  const hasReal = Array.isArray(candidate.candles) && normalizeChartBars(candidate.candles).length >= 2;
+  const tvUrl=tradingViewSymbolUrl(candidate.code);
   return `
     <section class="chart-card">
       <div class="chart-head">
@@ -1218,14 +1353,21 @@ function chartSection(candidate) {
           <small>${state.beginnerMode ? "値動き" : "PRICE ACTION"}</small>
           <strong>ローソク足</strong>
         </div>
-        <span class="pill ${hasReal ? "" : "pill-demo"}">${hasReal ? "DATA" : "学習用"}</span>
+        <div class="chart-head-actions">
+          <span class="status-badge ${hasReal ? "status-data" : "status-demo"}">${hasReal ? "OHLC" : "学習用"}</span>
+          <a class="text-button tradingview-link" href="${escapeHtml(tvUrl)}" target="_blank" rel="noopener noreferrer">TradingViewで確認 ↗</a>
+        </div>
       </div>
       <div class="chart-frame">
-        ${hasReal ? realCandleSvg(candidate.candles) : tutorialChartSvg()}
+        ${hasReal ? '<div id="interactiveChart" class="interactive-chart" aria-label="インタラクティブなローソク足チャート"></div>' : tutorialChartSvg()}
       </div>
+      ${hasReal
+        ? '<div class="chart-legend"><span><i class="legend-sma5"></i>5日平均</span><span><i class="legend-sma20"></i>20日平均</span><span><i class="legend-volume"></i>出来高</span></div>'
+        : ''}
       <p class="chart-note">${hasReal
-        ? "実OHLC・出来高・5日/20日平均を描画しています。VWAPは場中データが必要なため、証券アプリで確認してください。"
-        : "実価格データはまだ接続していません。この図はローソク足の読み方を理解するための見本です。選択中の銘柄の値動きではありません。"}</p>
+        ? "TradingView Lightweight Chartsで実OHLCを表示。チャートの鮮度はStock manの接続データに依存し、TradingViewの市場データを取得しているわけではありません。"
+        : "実価格データは未接続です。学習用サンプルを売買判断に使用しないでください。"}</p>
+      <p class="chart-attribution">TradingView Lightweight Charts™ · Copyright © 2025 TradingView, Inc. · <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a></p>
     </section>`;
 }
 
