@@ -56,7 +56,9 @@ const state = {
   beginnerMode: localStorage.getItem("stockman-beginner-mode") !== "off",
   liveConfig: loadLiveConfig(),
   livePayload: null,
-  riskConfig: loadRiskConfig()
+  riskConfig: loadRiskConfig(),
+  journal: loadJournal(),
+  predictionHistory: loadPredictionHistory()
 };
 
 const els = {
@@ -74,6 +76,38 @@ const els = {
   stopPctInput: document.querySelector("#stopPctInput"),
   riskCandidateSelect: document.querySelector("#riskCandidateSelect"),
   riskResults: document.querySelector("#riskResults"),
+  tradeUnitMode: document.querySelector("#tradeUnitMode"),
+  dailyPlanMode: document.querySelector("#dailyPlanMode"),
+  dailyPlanSummary: document.querySelector("#dailyPlanSummary"),
+  dailyPlanCandidates: document.querySelector("#dailyPlanCandidates"),
+  freezeSnapshotButton: document.querySelector("#freezeSnapshotButton"),
+  journalForm: document.querySelector("#journalForm"),
+  journalCode: document.querySelector("#journalCode"),
+  journalDateTime: document.querySelector("#journalDateTime"),
+  journalEntry: document.querySelector("#journalEntry"),
+  journalExit: document.querySelector("#journalExit"),
+  journalShares: document.querySelector("#journalShares"),
+  journalRule: document.querySelector("#journalRule"),
+  journalEntryReason: document.querySelector("#journalEntryReason"),
+  journalExitReason: document.querySelector("#journalExitReason"),
+  journalReflection: document.querySelector("#journalReflection"),
+  journalScreenshot: document.querySelector("#journalScreenshot"),
+  journalList: document.querySelector("#journalList"),
+  exportLocalDataButton: document.querySelector("#exportLocalDataButton"),
+  historyList: document.querySelector("#historyList"),
+  historyCount: document.querySelector("#historyCount"),
+  performanceContent: document.querySelector("#performanceContent"),
+  outcomeDialog: document.querySelector("#outcomeDialog"),
+  outcomeForm: document.querySelector("#outcomeForm"),
+  closeOutcomeDialog: document.querySelector("#closeOutcomeDialog"),
+  outcomeTitle: document.querySelector("#outcomeTitle"),
+  outcomeHistoryId: document.querySelector("#outcomeHistoryId"),
+  outcomeCode: document.querySelector("#outcomeCode"),
+  outcomeOpen: document.querySelector("#outcomeOpen"),
+  outcomeHigh: document.querySelector("#outcomeHigh"),
+  outcomeLow: document.querySelector("#outcomeLow"),
+  outcomeClose: document.querySelector("#outcomeClose"),
+  outcomeError: document.querySelector("#outcomeError"),
   uxModeButton: document.querySelector("#uxModeButton"),
   beginnerGuide: document.querySelector("#beginnerGuide"),
   termHelp: document.querySelector("#termHelp"),
@@ -102,6 +136,100 @@ const els = {
 };
 
 
+
+const JOURNAL_KEY = "stockman-journal-v1";
+const HISTORY_KEY = "stockman-prediction-history-v1";
+const PERFORMANCE_MIN_SAMPLES = 10;
+
+function loadJournal() {
+  try {
+    const data = JSON.parse(localStorage.getItem(JOURNAL_KEY) || "[]");
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+function saveJournal() {
+  localStorage.setItem(JOURNAL_KEY, JSON.stringify(state.journal));
+}
+
+function loadPredictionHistory() {
+  try {
+    const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+function savePredictionHistory() {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(state.predictionHistory));
+}
+
+function makeId(prefix) {
+  const id = globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2));
+  return prefix + "-" + id;
+}
+
+function checkpointNow() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone:"Asia/Tokyo", hour:"2-digit", minute:"2-digit", hour12:false
+  }).formatToParts(new Date());
+  const hour = Number(parts.find(p=>p.type==="hour")?.value || 0);
+  const minute = Number(parts.find(p=>p.type==="minute")?.value || 0);
+  const mins = hour*60+minute;
+  if (mins >= 8*60+20 && mins <= 9*60) return "PREMARKET_FINAL";
+  if (mins >= 15*60+20 && mins <= 18*60) return "POST_CLOSE";
+  return "MANUAL";
+}
+
+function jpDateTimeLocalNow() {
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone:"Asia/Tokyo", year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", hour12:false
+  }).format(new Date());
+  return parts.replace(" ", "T");
+}
+
+function round(value, digits=2) {
+  const n=Number(value);
+  if (!Number.isFinite(n)) return null;
+  const p=10**digits;
+  return Math.round(n*p)/p;
+}
+
+async function compressScreenshot(file) {
+  if (!file || !file.type?.startsWith("image/")) return null;
+  const dataUrl = await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve,reject)=>{
+    const image=new Image();
+    image.onload=()=>resolve(image);
+    image.onerror=reject;
+    image.src=dataUrl;
+  });
+  const maxW=520;
+  const scale=Math.min(1,maxW/img.width);
+  const canvas=document.createElement("canvas");
+  canvas.width=Math.max(1,Math.round(img.width*scale));
+  canvas.height=Math.max(1,Math.round(img.height*scale));
+  canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL("image/jpeg",0.58);
+}
+
+function downloadJson(filename, payload) {
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+}
+
 const LIVE_CONFIG_KEY = "stockman-private-daily-v1";
 const RISK_CONFIG_KEY = "stockman-risk-v1";
 
@@ -125,10 +253,11 @@ function loadRiskConfig() {
       capital: Number(parsed.capital) || 0,
       riskPct: Number(parsed.riskPct) || 1,
       stopPct: Number(parsed.stopPct) || 3,
-      code: parsed.code || ""
+      code: parsed.code || "",
+      tradeMode: parsed.tradeMode === "odd" ? "odd" : "standard"
     };
   } catch {
-    return { capital: 0, riskPct: 1, stopPct: 3, code: "" };
+    return { capital: 0, riskPct: 1, stopPct: 3, code: "", tradeMode: "standard" };
   }
 }
 
@@ -239,6 +368,41 @@ function setConnectionState(label, message, tone) {
   }
 }
 
+
+function affordabilityStatus(candidate) {
+  const capital=Number(state.riskConfig.capital);
+  const price=Number(candidate?.price);
+  const riskPct=Number(state.riskConfig.riskPct);
+  const stopPct=Number(state.riskConfig.stopPct);
+  const mode=state.riskConfig.tradeMode || "standard";
+
+  if (!capital) return {state:"UNKNOWN",ok:true,label:"資金未設定",reason:"運用資金を入力すると判定します。"};
+  if (!Number.isFinite(price) || price<=0) return {state:"UNAVAILABLE",ok:false,label:"価格未接続",reason:"実価格がないため資金判定できません。"};
+
+  const riskBudget=capital*riskPct/100;
+  const stopPerShare=price*stopPct/100;
+  const maxByCash=Math.floor(capital/price);
+  const maxByRisk=stopPerShare>0?Math.floor(riskBudget/stopPerShare):0;
+  const maxShares=Math.max(0,Math.min(maxByCash,maxByRisk));
+
+  if (mode==="odd") {
+    return maxShares>=1
+      ? {state:"OK",ok:true,label:maxShares+"株まで参考",reason:"単元未満株を利用する前提。証券会社の注文条件を確認してください。",maxShares}
+      : {state:"NO",ok:false,label:"資金/リスク条件外",reason:"1株でも設定した損失上限または資金を超えます。",maxShares:0};
+  }
+
+  const lotCost=price*100;
+  const lotRisk=stopPerShare*100;
+  const cashOk=capital>=lotCost;
+  const riskOk=riskBudget>=lotRisk;
+  if (cashOk && riskOk) return {state:"OK",ok:true,label:"100株 条件内",reason:"現金と損失上限の両方を満たします。",maxShares:100};
+  return {
+    state:"NO",ok:false,label:"通常単元は見送り",
+    reason:!cashOk ? "100株必要資金が運用資金を超えます。" : "100株時の想定損失が許容額を超えます。",
+    maxShares
+  };
+}
+
 function marketMetricCards(candidate) {
   const m = candidate.marketMetrics;
   if (!m || Object.keys(m).length === 0) {
@@ -290,6 +454,9 @@ function renderRiskCenter() {
   if (els.stopPctInput && document.activeElement !== els.stopPctInput) {
     els.stopPctInput.value = state.riskConfig.stopPct;
   }
+  if (els.tradeUnitMode && document.activeElement !== els.tradeUnitMode) {
+    els.tradeUnitMode.value = state.riskConfig.tradeMode || "standard";
+  }
 
   const candidate = candidates.find(c => c.code === selectedCode);
   const capital = Number(state.riskConfig.capital);
@@ -329,6 +496,7 @@ function syncRiskInputs() {
   state.riskConfig.riskPct = clamp(Number(els.riskPctInput.value) || 1, 0.1, 5);
   state.riskConfig.stopPct = clamp(Number(els.stopPctInput.value) || 3, 0.5, 20);
   state.riskConfig.code = els.riskCandidateSelect.value || state.riskConfig.code;
+  state.riskConfig.tradeMode = els.tradeUnitMode?.value === "odd" ? "odd" : "standard";
   saveRiskConfig();
   renderRiskCenter();
 }
@@ -372,6 +540,8 @@ function rankFromScore(score, gap = 0) {
 }
 
 function displayRank(candidate) {
+  const affordability = affordabilityStatus(candidate);
+  if (!affordability.ok) return "NO TRADE";
   const gap = Number(state.gaps[candidate.code] ?? 0);
   return rankFromScore(adjustedTradeScore(candidate), gap);
 }
@@ -509,6 +679,7 @@ function renderCandidates() {
     const changeClass = c.changePct > 0 ? "positive" : c.changePct < 0 ? "negative" : "";
     const changeText = c.changePct === null || c.changePct === undefined ? "—" : `${c.changePct > 0 ? "+" : ""}${c.changePct}%`;
     const decision = decisionState(c);
+    const affordability = affordabilityStatus(c);
     const predictionLabel = state.beginnerMode ? "上がりやすさ" : "Prediction";
     const tradeLabel = state.beginnerMode ? "今の入りやすさ" : "Trade";
     return `
@@ -518,6 +689,7 @@ function renderCandidates() {
           <strong>${escapeHtml(c.name)}</strong>
           <span>${escapeHtml(c.code)} · ¥${formatNumber(c.price)} · <span class="${changeClass}">${changeText}</span></span>
           <div class="decision-chip decision-${decision.tone}">${escapeHtml(decision.label)}</div>
+          <div class="affordability-tag ${affordability.ok ? "affordability-ok" : affordability.state==="UNKNOWN" ? "affordability-unknown" : "affordability-no"}">${escapeHtml(affordability.label)}</div>
         </div>
         <div class="catalyst">
           <strong title="${escapeHtml(c.catalyst)}">${escapeHtml(c.catalyst)}</strong>
@@ -685,6 +857,10 @@ const glossary = {
 };
 
 function decisionState(candidate) {
+  const affordability = affordabilityStatus(candidate);
+  if (!affordability.ok) {
+    return { label: "資金条件で見送り", detail: affordability.reason, tone: "stop" };
+  }
   const gap = Number(state.gaps[candidate.code] ?? 0);
   const score = adjustedTradeScore(candidate);
   const rank = rankFromScore(score, gap);
@@ -818,23 +994,50 @@ function realCandleSvg(candles) {
   const data = candles.slice(-40);
   const lows=data.map(d=>Number(d.low)).filter(Number.isFinite);
   const highs=data.map(d=>Number(d.high)).filter(Number.isFinite);
+  const vols=data.map(d=>Number(d.volume)).filter(Number.isFinite);
   if (!lows.length || !highs.length) return "";
+
   const min=Math.min(...lows), max=Math.max(...highs);
   const range=Math.max(0.0001,max-min);
-  const width=620,height=250,pad=30;
-  const scaleY=v=>pad+(max-v)/range*(height-pad*2);
+  const width=620, priceTop=28, priceBottom=224, volTop=244, volBottom=302, pad=30;
+  const scaleY=v=>priceTop+(max-v)/range*(priceBottom-priceTop);
   const gap=(width-pad*2)/data.length;
   const bodyW=Math.max(3,Math.min(12,gap*.55));
+  const maxVol=vols.length?Math.max(...vols):0;
+
+  const smaValues=(period)=>data.map((_,i)=>{
+    if(i+1<period)return null;
+    const vals=data.slice(i-period+1,i+1).map(x=>Number(x.close)).filter(Number.isFinite);
+    return vals.length===period?vals.reduce((a,b)=>a+b,0)/period:null;
+  });
+  const polyline=(vals,cls)=> {
+    const points=vals.map((v,i)=>Number.isFinite(v)?(pad+i*gap+gap/2)+","+scaleY(v):null).filter(Boolean);
+    return points.length>=2?'<polyline points="'+points.join(" ")+'" class="'+cls+'"/>':"";
+  };
+
   const nodes=data.map((d,i)=>{
-    const o=Number(d.open),h=Number(d.high),l=Number(d.low),c=Number(d.close);
+    const o=Number(d.open),h=Number(d.high),l=Number(d.low),c=Number(d.close),v=Number(d.volume);
     if (![o,h,l,c].every(Number.isFinite)) return "";
     const x=pad+i*gap+gap/2, up=c>=o;
     const yo=scaleY(o),yc=scaleY(c),yh=scaleY(h),yl=scaleY(l);
     const y=Math.min(yo,yc), bh=Math.max(2,Math.abs(yc-yo));
     const cls=up?"real-up":"real-down";
-    return `<line x1="${x}" x2="${x}" y1="${yh}" y2="${yl}" class="${cls} wick"/><rect x="${x-bodyW/2}" y="${y}" width="${bodyW}" height="${bh}" rx="1" class="${cls}"/>`;
+    const vh=maxVol&&Number.isFinite(v)?(v/maxVol)*(volBottom-volTop):0;
+    return '<line x1="'+x+'" x2="'+x+'" y1="'+yh+'" y2="'+yl+'" class="'+cls+' wick"/>'+
+      '<rect x="'+(x-bodyW/2)+'" y="'+y+'" width="'+bodyW+'" height="'+bh+'" rx="1" class="'+cls+'"/>'+
+      (vh?'<rect x="'+(x-bodyW/2)+'" y="'+(volBottom-vh)+'" width="'+bodyW+'" height="'+vh+'" class="volume-bar"/>':"");
   }).join("");
-  return `<svg viewBox="0 0 620 250" class="candle-svg" role="img" aria-label="実価格ローソク足">${nodes}</svg>`;
+
+  const prevClose=data.length>=2?Number(data.at(-2).close):null;
+  const prevLine=Number.isFinite(prevClose)
+    ? '<line x1="'+pad+'" x2="'+(width-pad)+'" y1="'+scaleY(prevClose)+'" y2="'+scaleY(prevClose)+'" class="entry-line"/>'
+    : "";
+
+  return '<svg viewBox="0 0 620 320" class="candle-svg" role="img" aria-label="実価格ローソク足">'+
+    '<line x1="'+pad+'" x2="'+(width-pad)+'" y1="234" y2="234" class="price-separator"/>'+
+    prevLine+nodes+polyline(smaValues(5),"sma5-line")+polyline(smaValues(20),"sma20-line")+
+    '</svg>'+
+    '<div class="chart-legend"><span><i class="legend-sma5"></i>5日平均</span><span><i class="legend-sma20"></i>20日平均</span><span><i class="legend-volume"></i>出来高</span><span>破線: 前日終値</span></div>';
 }
 
 function chartSection(candidate) {
@@ -852,7 +1055,7 @@ function chartSection(candidate) {
         ${hasReal ? realCandleSvg(candidate.candles) : tutorialChartSvg()}
       </div>
       <p class="chart-note">${hasReal
-        ? "実OHLCデータを描画しています。今後VWAP・出来高・支持帯を重ねます。"
+        ? "実OHLC・出来高・5日/20日平均を描画しています。VWAPは場中データが必要なため、証券アプリで確認してください。"
         : "実価格データはまだ接続していません。この図はローソク足の読み方を理解するための見本です。選択中の銘柄の値動きではありません。"}</p>
     </section>`;
 }
@@ -880,6 +1083,308 @@ function beginnerEntryMap(candidate) {
     </section>`;
 }
 
+
+function renderDailyPlan() {
+  if (!els.dailyPlanSummary || !state.data) return;
+  const all = candidateViewModels();
+  const tradable = all.filter(c => c.displayRank !== "NO TRADE");
+  const top = tradable.slice(0,3);
+  const capital=Number(state.riskConfig.capital);
+  const regime=state.data.marketRegime || {};
+  const mode=state.data.meta?.mode || "UNKNOWN";
+  const readiness=state.livePayload?.usableForNextDayDecision ? "日足確認済み" : "DEMO / 未接続";
+
+  if (els.dailyPlanMode) els.dailyPlanMode.textContent = mode;
+
+  const marketText = regime.status==="RISK_OFF" ? "弱い・無理しない" :
+    regime.status==="RISK_ON" ? "強め" : regime.status==="NEUTRAL" ? "中立" : (regime.status || "未確定");
+
+  els.dailyPlanSummary.innerHTML = `
+    <div class="plan-summary-card"><small>今日の相場</small><strong>${escapeHtml(marketText)}</strong><span>${escapeHtml(regime.note || "市場情報を確認してください。")}</span></div>
+    <div class="plan-summary-card"><small>実取引候補</small><strong>${tradable.length} 銘柄</strong><span>資金条件・Trade Scoreを反映</span></div>
+    <div class="plan-summary-card"><small>運用資金</small><strong>${capital ? "¥"+Math.round(capital).toLocaleString("ja-JP") : "未設定"}</strong><span>${capital ? "ランキングへ資金制約を反映中" : "RISK FIRSTで設定してください"}</span></div>
+    <div class="plan-summary-card"><small>データ状態</small><strong>${escapeHtml(readiness)}</strong><span>発注前は証券アプリの現在値・板を確認</span></div>`;
+
+  if (!top.length) {
+    els.dailyPlanCandidates.innerHTML='<div class="empty">現在の条件では実取引候補はありません。NO TRADEも正解です。</div>';
+    return;
+  }
+
+  els.dailyPlanCandidates.innerHTML=top.map((c,i)=>{
+    const d=decisionState(c);
+    const a=affordabilityStatus(c);
+    return `
+      <div class="plan-candidate ${c.displayRank==="NO TRADE"?"no-trade":""}">
+        <div class="mini-rank ${rankClass(c.displayRank)}">${i+1}</div>
+        <div><strong>${escapeHtml(c.code)} ${escapeHtml(c.name)}</strong><small>上がりやすさ ${c.predictionScore} / 入りやすさ ${c.tradeScore}</small></div>
+        <div class="plan-reason"><strong>${escapeHtml(c.catalyst)}</strong><small>${escapeHtml(a.reason)}</small></div>
+        <div class="plan-action">${escapeHtml(d.label)}</div>
+      </div>`;
+  }).join("");
+}
+
+function freezeCurrentPrediction() {
+  if (!state.data) return;
+  const checkpoint=checkpointNow();
+  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const duplicate=state.predictionHistory.some(h=>h.date===today&&h.checkpoint===checkpoint);
+  if (duplicate) {
+    alert("同じ日・同じチェックポイントの予測はすでに固定保存されています。上書きはしません。");
+    return;
+  }
+
+  const candidates=candidateViewModels().map(c=>({
+    code:c.code,name:c.name,
+    predictionScore:c.predictionScore,
+    tradeScore:c.tradeScore,
+    rank:c.displayRank,
+    catalyst:c.catalyst,
+    entryCondition:c.entryCondition,
+    invalidation:c.invalidation,
+    snapshotPrice:Number.isFinite(Number(c.price))?Number(c.price):null,
+    affordability:affordabilityStatus(c),
+    dataUpdatedAt:c.dataUpdatedAt || null
+  }));
+
+  const record={
+    id:makeId("prediction"),
+    date:today,
+    createdAt:new Date().toISOString(),
+    checkpoint,
+    modelVersion:"free-v0.4",
+    mode:state.data.meta?.mode || "UNKNOWN",
+    marketRegime:JSON.parse(JSON.stringify(state.data.marketRegime || {})),
+    dataSources:JSON.parse(JSON.stringify(state.data.dataSources || [])),
+    candidates,
+    outcomes:{}
+  };
+  state.predictionHistory.unshift(record);
+  savePredictionHistory();
+  renderPredictionHistory();
+  renderPerformance();
+}
+
+function renderPredictionHistory() {
+  if (!els.historyList) return;
+  if (els.historyCount) els.historyCount.textContent=state.predictionHistory.length+" SNAPSHOTS";
+  if (!state.predictionHistory.length) {
+    els.historyList.innerHTML='<div class="empty">まだ予測履歴がありません。「現在の予測を固定保存」で、結果を見る前の判断を残してください。</div>';
+    return;
+  }
+
+  els.historyList.innerHTML=state.predictionHistory.map(h=>`
+    <article class="history-entry">
+      <div class="history-entry-head">
+        <div><strong>${escapeHtml(h.date)} · ${escapeHtml(h.checkpoint)}</strong><span> ${escapeHtml(h.modelVersion)} · ${escapeHtml(h.mode)}</span></div>
+        <span>${escapeHtml(formatDateTime(h.createdAt))}</span>
+      </div>
+      <div class="history-candidates">
+        ${h.candidates.map(c=>{
+          const o=h.outcomes?.[c.code];
+          return `
+            <div class="history-candidate">
+              <div><strong>${escapeHtml(c.code)} ${escapeHtml(c.name)}</strong><span>固定時価格 ¥${formatNumber(c.snapshotPrice)}</span></div>
+              <div><span>Pred</span><strong>${c.predictionScore}</strong></div>
+              <div><span>Trade</span><strong>${c.tradeScore}</strong></div>
+              <div class="history-rank"><span>Rank</span><strong>${escapeHtml(c.rank)}</strong></div>
+              <div class="history-action">
+                ${o
+                  ? '<span class="history-outcome">結果登録済 '+(o.returnPrevClosePct==null?"":((o.returnPrevClosePct>0?"+":"")+o.returnPrevClosePct+"%"))+'</span>'
+                  : '<button class="mini-button" type="button" data-outcome="'+escapeHtml(h.id)+'" data-code="'+escapeHtml(c.code)+'">翌日結果を入力</button>'}
+              </div>
+            </div>`;
+        }).join("")}
+      </div>
+    </article>`).join("");
+
+  els.historyList.querySelectorAll("[data-outcome]").forEach(btn=>{
+    btn.addEventListener("click",()=>openOutcomeDialog(btn.dataset.outcome,btn.dataset.code));
+  });
+}
+
+function openOutcomeDialog(historyId,code) {
+  const h=state.predictionHistory.find(x=>x.id===historyId);
+  const c=h?.candidates.find(x=>x.code===code);
+  if(!h||!c)return;
+  els.outcomeHistoryId.value=historyId;
+  els.outcomeCode.value=code;
+  els.outcomeTitle.textContent=c.code+" "+c.name+"｜翌営業日の結果";
+  [els.outcomeOpen,els.outcomeHigh,els.outcomeLow,els.outcomeClose].forEach(x=>x.value="");
+  els.outcomeError.classList.add("hidden");
+  els.outcomeDialog.showModal();
+}
+
+function appendOutcome(historyId,code,values) {
+  const h=state.predictionHistory.find(x=>x.id===historyId);
+  const c=h?.candidates.find(x=>x.code===code);
+  if(!h||!c)return false;
+  if(h.outcomes?.[code])return false;
+
+  const open=Number(values.open),high=Number(values.high),low=Number(values.low),close=Number(values.close);
+  if(![open,high,low,close].every(v=>Number.isFinite(v)&&v>0))throw new Error("OHLCをすべて入力してください。");
+  if(high<Math.max(open,close,low)||low>Math.min(open,close,high))throw new Error("High / Low の関係を確認してください。");
+
+  const ref=Number(c.snapshotPrice);
+  h.outcomes=h.outcomes||{};
+  h.outcomes[code]={
+    recordedAt:new Date().toISOString(),open,high,low,close,
+    returnPrevClosePct:Number.isFinite(ref)&&ref>0?round((close/ref-1)*100):null,
+    returnOpenClosePct:round((close/open-1)*100),
+    mfePct:Number.isFinite(ref)&&ref>0?round((high/ref-1)*100):null,
+    maePct:Number.isFinite(ref)&&ref>0?round((low/ref-1)*100):null,
+    win:Number.isFinite(ref)&&ref>0?close>ref:null
+  };
+  savePredictionHistory();
+  return true;
+}
+
+function renderJournal() {
+  if (!els.journalList || !state.data) return;
+  const candidates=state.data.candidates||[];
+  const selected=els.journalCode?.value;
+  if (els.journalCode) {
+    els.journalCode.innerHTML=candidates.map(c=>'<option value="'+escapeHtml(c.code)+'">'+escapeHtml(c.code+" "+c.name)+'</option>').join("");
+    if(selected&&candidates.some(c=>c.code===selected))els.journalCode.value=selected;
+  }
+  if (els.journalDateTime && !els.journalDateTime.value) els.journalDateTime.value=jpDateTimeLocalNow();
+
+  if(!state.journal.length){
+    els.journalList.innerHTML='<div class="empty">まだ取引記録はありません。取引後に「なぜ入ったか」「ルールを守れたか」を残してください。</div>';
+    return;
+  }
+
+  els.journalList.innerHTML=state.journal.map(j=>{
+    const pnl=Number.isFinite(j.pnl)?j.pnl:null;
+    return `
+      <article class="journal-entry">
+        <div class="journal-entry-head">
+          <div><strong>${escapeHtml(j.code)} ${escapeHtml(j.name)}</strong><span> · ${escapeHtml(j.dateTime)}</span></div>
+          <span class="rule-${escapeHtml(j.rule)}">ルール: ${j.rule==="yes"?"守れた":j.rule==="partial"?"一部違反":"違反"}</span>
+        </div>
+        <div class="journal-metrics">
+          <div><small>Entry</small><strong>¥${formatNumber(j.entry)}</strong></div>
+          <div><small>Exit</small><strong>${j.exit==null?"OPEN":"¥"+formatNumber(j.exit)}</strong></div>
+          <div><small>株数</small><strong>${j.shares}</strong></div>
+          <div><small>損益</small><strong class="${pnl>0?"positive":pnl<0?"negative":""}">${pnl==null?"—":(pnl>0?"+":"")+"¥"+Math.round(pnl).toLocaleString("ja-JP")}</strong></div>
+        </div>
+        <div class="journal-notes"><b>Entry:</b> ${escapeHtml(j.entryReason||"—")}<br><b>Exit:</b> ${escapeHtml(j.exitReason||"—")}<br><b>学び:</b> ${escapeHtml(j.reflection||"—")}</div>
+        ${j.screenshot?'<img class="journal-thumb" src="'+j.screenshot+'" alt="取引スクリーンショット"/>':""}
+      </article>`;
+  }).join("");
+}
+
+async function saveJournalFromForm(event) {
+  event.preventDefault();
+  const code=els.journalCode.value;
+  const candidate=(state.data.candidates||[]).find(c=>c.code===code);
+  if(!candidate)return;
+
+  const entry=Number(els.journalEntry.value);
+  const exitRaw=els.journalExit.value.trim();
+  const exit=exitRaw===""?null:Number(exitRaw);
+  const shares=Number(els.journalShares.value);
+  if(!Number.isFinite(entry)||entry<=0||!Number.isInteger(shares)||shares<=0){
+    alert("Entryと株数を確認してください。");
+    return;
+  }
+  if(exit!==null&&(!Number.isFinite(exit)||exit<=0)){
+    alert("Exitを確認してください。");return;
+  }
+
+  let screenshot=null;
+  try{screenshot=await compressScreenshot(els.journalScreenshot.files?.[0]);}catch(e){console.warn(e);}
+
+  const vm={...candidate,tradeScore:adjustedTradeScore(candidate),displayRank:displayRank(candidate)};
+  const record={
+    id:makeId("trade"),
+    savedAt:new Date().toISOString(),
+    code,name:candidate.name,
+    dateTime:els.journalDateTime.value||jpDateTimeLocalNow(),
+    entry,exit,shares,
+    pnl:exit===null?null:round((exit-entry)*shares,0),
+    entryReason:els.journalEntryReason.value.trim(),
+    exitReason:els.journalExitReason.value.trim(),
+    reflection:els.journalReflection.value.trim(),
+    rule:els.journalRule.value,
+    screenshot,
+    context:{
+      predictionScore:candidate.predictionScore,
+      tradeScore:vm.tradeScore,
+      rank:vm.displayRank,
+      marketRegime:state.data.marketRegime?.status||"UNKNOWN",
+      dataMode:state.data.meta?.mode||"UNKNOWN"
+    }
+  };
+  state.journal.unshift(record);
+  saveJournal();
+  els.journalForm.reset();
+  els.journalDateTime.value=jpDateTimeLocalNow();
+  renderJournal();
+  renderPerformance();
+}
+
+function settledPredictionRows() {
+  const rows=[];
+  state.predictionHistory.forEach(h=>{
+    if(String(h.mode).includes("DEMO"))return;
+    h.candidates.forEach(c=>{
+      const o=h.outcomes?.[c.code];
+      if(o&&o.win!==null)rows.push({history:h,candidate:c,outcome:o});
+    });
+  });
+  return rows;
+}
+
+function renderPerformance() {
+  if(!els.performanceContent)return;
+  const rows=settledPredictionRows();
+  if(rows.length<PERFORMANCE_MIN_SAMPLES){
+    els.performanceContent.innerHTML=`
+      <div class="performance-lock">
+        <strong>${rows.length} / ${PERFORMANCE_MIN_SAMPLES}</strong>
+        <p>実データの検証結果が最低${PERFORMANCE_MIN_SAMPLES}件貯まるまで、勝率や平均成績は表示しません。DEMO記録は集計から除外します。</p>
+      </div>`;
+    return;
+  }
+
+  const returns=rows.map(r=>Number(r.outcome.returnPrevClosePct)).filter(Number.isFinite);
+  const wins=rows.filter(r=>r.outcome.win===true).length;
+  const avg=returns.reduce((a,b)=>a+b,0)/returns.length;
+  const sorted=[...returns].sort((a,b)=>a-b);
+  const median=sorted.length%2?sorted[(sorted.length-1)/2]:(sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+  const avgMfe=rows.map(r=>Number(r.outcome.mfePct)).filter(Number.isFinite);
+  const avgMae=rows.map(r=>Number(r.outcome.maePct)).filter(Number.isFinite);
+
+  const byRank=["S","A","B","NO TRADE"].map(rank=>{
+    const subset=rows.filter(r=>r.candidate.rank===rank);
+    const w=subset.filter(r=>r.outcome.win===true).length;
+    return {rank,n:subset.length,winRate:subset.length?w/subset.length*100:null};
+  });
+
+  els.performanceContent.innerHTML=`
+    <div class="performance-grid">
+      <div class="performance-card"><small>検証件数</small><strong>${rows.length}</strong></div>
+      <div class="performance-card"><small>翌日終値 勝率</small><strong>${(wins/rows.length*100).toFixed(1)}%</strong></div>
+      <div class="performance-card"><small>平均リターン</small><strong>${avg>0?"+":""}${avg.toFixed(2)}%</strong></div>
+      <div class="performance-card"><small>中央値</small><strong>${median>0?"+":""}${median.toFixed(2)}%</strong></div>
+      <div class="performance-card"><small>平均MFE</small><strong>${avgMfe.length?(avgMfe.reduce((a,b)=>a+b,0)/avgMfe.length).toFixed(2)+"%":"—"}</strong></div>
+      <div class="performance-card"><small>平均MAE</small><strong>${avgMae.length?(avgMae.reduce((a,b)=>a+b,0)/avgMae.length).toFixed(2)+"%":"—"}</strong></div>
+    </div>
+    <div class="rank-performance">
+      ${byRank.map(r=>'<div class="rank-stat"><small>'+escapeHtml(r.rank)+' · '+r.n+'件</small><strong>'+(r.winRate==null?"—":r.winRate.toFixed(1)+"%")+'</strong></div>').join("")}
+    </div>`;
+}
+
+function exportLocalData() {
+  downloadJson("stockman-backup-"+new Date().toISOString().slice(0,10)+".json",{
+    exportedAt:new Date().toISOString(),
+    version:"free-v0.4",
+    journal:state.journal,
+    predictionHistory:state.predictionHistory,
+    riskConfig:state.riskConfig
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&","&amp;")
@@ -899,6 +1404,10 @@ function renderAll() {
   renderCandidates();
   renderSimulator();
   renderRiskCenter();
+  renderDailyPlan();
+  renderJournal();
+  renderPredictionHistory();
+  renderPerformance();
 }
 
 els.rankFilter.addEventListener("change", event => {
@@ -947,9 +1456,18 @@ if (els.clearConnectionButton) {
 }
 
 [els.capitalInput, els.riskPctInput, els.stopPctInput].forEach(input => {
-  if (input) input.addEventListener("input", syncRiskInputs);
+  if (input) input.addEventListener("input", () => {
+    syncRiskInputs();
+    renderCandidates();
+    renderDailyPlan();
+  });
 });
 if (els.riskCandidateSelect) els.riskCandidateSelect.addEventListener("change", syncRiskInputs);
+if (els.tradeUnitMode) els.tradeUnitMode.addEventListener("change", () => {
+  syncRiskInputs();
+  renderCandidates();
+  renderDailyPlan();
+});
 
 if (els.uxModeButton) {
   els.uxModeButton.addEventListener("click", () => {
@@ -977,6 +1495,29 @@ els.closeDialog.addEventListener("click", () => els.detailDialog.close());
 
 els.detailDialog.addEventListener("click", event => {
   if (event.target === els.detailDialog) els.detailDialog.close();
+});
+
+
+if (els.freezeSnapshotButton) els.freezeSnapshotButton.addEventListener("click", freezeCurrentPrediction);
+if (els.journalForm) els.journalForm.addEventListener("submit", saveJournalFromForm);
+if (els.exportLocalDataButton) els.exportLocalDataButton.addEventListener("click", exportLocalData);
+if (els.closeOutcomeDialog) els.closeOutcomeDialog.addEventListener("click",()=>els.outcomeDialog.close());
+if (els.outcomeDialog) els.outcomeDialog.addEventListener("click",e=>{if(e.target===els.outcomeDialog)els.outcomeDialog.close();});
+if (els.outcomeForm) els.outcomeForm.addEventListener("submit",event=>{
+  event.preventDefault();
+  try{
+    appendOutcome(
+      els.outcomeHistoryId.value,
+      els.outcomeCode.value,
+      {open:els.outcomeOpen.value,high:els.outcomeHigh.value,low:els.outcomeLow.value,close:els.outcomeClose.value}
+    );
+    els.outcomeDialog.close();
+    renderPredictionHistory();
+    renderPerformance();
+  }catch(error){
+    els.outcomeError.textContent=String(error.message||error);
+    els.outcomeError.classList.remove("hidden");
+  }
 });
 
 loadSnapshot().then(async () => {
