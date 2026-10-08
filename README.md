@@ -1,5 +1,24 @@
 # Stock man
 
+
+## Automatic Daily Analysis Engine v1
+
+**Implementation installed — live input provider still not configured.**
+
+- Deterministic daily OHLCV analysis: `engine/analysis-core.js`
+- Tokyo-time GitHub Actions: weekdays 18:27 + 08:37
+- Immutable checkpoint archives only for actually licensed input
+- Public output: `data/daily-analysis.json`
+- Public output refuses sources without explicit redistribution rights
+- Browser-side private JSON import: Settings > Automatic Daily Analysis
+- MUFG eSmart kabu Station **read-only Windows local collector**: `scripts/kabu-readonly.mjs`
+- Brokerage order placement is NOT implemented
+- If there is no eligible source, the site shows **UNAVAILABLE**, not stale 2026-10-07 demo rankings.
+
+**To activate real daily picks:** connect a legally redistributable public feed, OR set up a private authenticated data path / local Windows kabuStation collection for personal analysis. Free J-Quants daily prices are delayed 12 weeks and cannot substitute for next-day quotes.
+
+Full setup: [Automatic Daily Analysis setup](docs/AUTOMATIC_DAILY_SETUP.md).
+
 日本株の翌営業日候補を、**材料 × モメンタム × 出来高 × 相対強度 × 需給 × 地合い**で整理し、
 「上がりそう」と「今から入る期待値」を分けて判断するための分析ダッシュボードです。
 
