@@ -721,6 +721,7 @@ function renderMeta() {
   const freshness = freshnessLabel();
 
   els.modeBadge.textContent = meta.mode || "UNKNOWN";
+  els.modeBadge.className = "status-badge " + (String(meta.mode).includes("DEMO") ? "status-demo" : String(meta.mode).includes("STALE") ? "status-stale" : "status-data");
   els.marketSession.textContent = safeText(meta.marketSession, "—");
   els.updatedAt.textContent = formatDateTime(meta.generatedAt);
   els.nextReviewAt.textContent = formatDateTime(meta.nextReviewAt);
@@ -903,8 +904,8 @@ function renderCandidateDetail(code) {
 
     <section class="market-confirmation">
       <div class="entry-map-title">
-        <small>REAL DAILY CHECK</small>
-        <strong>実日足で何が確認できた？</strong>
+        <small>${state.beginnerMode ? "日足の確認" : "DAILY TECHNICALS"}</small>
+        <strong>${state.beginnerMode ? "値動きは強い？" : "Daily confirmation"}</strong>
       </div>
       ${marketMetricCards(c)}
     </section>
@@ -945,10 +946,10 @@ function renderCandidateDetail(code) {
     ${beginnerEntryMap(c)}
 
     <div class="trade-plan">
-      <div class="plan-row"><small>Entry condition</small><p>${escapeHtml(safeText(c.entryCondition))}</p></div>
-      <div class="plan-row"><small>Invalidation</small><p>${escapeHtml(safeText(c.invalidation))}</p></div>
-      <div class="plan-row"><small>Target logic</small><p>${escapeHtml(safeText(c.targetLogic))}</p></div>
-      <div class="plan-row"><small>Data updated</small><p>${escapeHtml(formatDateTime(c.dataUpdatedAt))}</p></div>
+      <div class="plan-row"><small>${state.beginnerMode ? "入る条件" : "Entry condition"}</small><p>${escapeHtml(safeText(c.entryCondition))}</p></div>
+      <div class="plan-row"><small>${state.beginnerMode ? "やめる条件" : "Invalidation"}</small><p>${escapeHtml(safeText(c.invalidation))}</p></div>
+      <div class="plan-row"><small>${state.beginnerMode ? "利益確定の考え方" : "Target logic"}</small><p>${escapeHtml(safeText(c.targetLogic))}</p></div>
+      <div class="plan-row"><small>${state.beginnerMode ? "データ更新" : "Data updated"}</small><p>${escapeHtml(formatDateTime(c.dataUpdatedAt))}</p></div>
     </div>
   `;
 
@@ -1157,7 +1158,7 @@ function chartSection(candidate) {
     <section class="chart-card">
       <div class="chart-head">
         <div>
-          <small>PRICE ACTION</small>
+          <small>${state.beginnerMode ? "値動き" : "PRICE ACTION"}</small>
           <strong>ローソク足</strong>
         </div>
         <span class="pill ${hasReal ? "" : "pill-demo"}">${hasReal ? "DATA" : "学習用"}</span>
@@ -1177,7 +1178,7 @@ function beginnerEntryMap(candidate) {
   return `
     <section class="entry-map">
       <div class="entry-map-title">
-        <small>ENTRY MAP</small>
+        <small>${state.beginnerMode ? "入り方" : "ENTRY MAP"}</small>
         <strong>どうなったら次の判断へ進む？</strong>
       </div>
       <div class="entry-current ${decision.tone}">
