@@ -574,3 +574,16 @@ label>span{display:block;margin-bottom:6px;font-size:10px;color:var(--md-sys-col
 .gap-adjustment{margin-top:8px}
 .journal-details{margin-top:9px;border-top:1px solid var(--md-sys-color-outline-variant);padding-top:7px}
 .journal-details summary{cursor:pointer;font-size:10px;color:var(--md-sys-color-primary);font-weight:700;min-height:36px;display:flex;align-items:center}
+
+.chart-head-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.interactive-chart{width:100%;min-height:300px;touch-action:pan-y}
+.chart-fallback{min-height:300px}
+.tradingview-link{min-height:34px;padding:0 10px;font-size:10px}
+.chart-attribution{margin:8px 0 0;font-size:8px;line-height:12px;color:var(--md-sys-color-on-surface-variant)}
+.chart-attribution a{color:inherit}
+@media(max-width:599px){
+  .chart-head{align-items:flex-start;gap:8px}
+  .chart-head-actions{max-width:58%}
+  .tradingview-link{padding:0 8px}
+  .interactive-chart{min-height:310px}
+}
