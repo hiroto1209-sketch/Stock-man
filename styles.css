@@ -372,3 +372,101 @@ dialog::backdrop{background:rgba(0,0,0,.7);backdrop-filter:blur(8px)}
   .trade-readiness{align-items:flex-start;flex-direction:column}
   .trade-readiness p{text-align:left}
 }
+
+/* v0.4 free decision OS */
+.plan-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.daily-plan{margin:34px 0 18px}
+.daily-plan-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.plan-summary-card{padding:14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.055)}
+.plan-summary-card small{display:block;color:var(--muted);font-size:9px;letter-spacing:.06em}
+.plan-summary-card strong{display:block;margin-top:6px;font-size:15px;line-height:1.35}
+.plan-summary-card span{display:block;margin-top:5px;color:var(--muted);font-size:9px;line-height:1.45}
+.daily-plan-candidates{display:grid;gap:8px}
+.plan-candidate{
+  display:grid;grid-template-columns:40px minmax(140px,1.2fr) minmax(160px,1.6fr) 100px;
+  gap:10px;align-items:center;padding:12px;border-radius:14px;
+  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.055)
+}
+.plan-candidate.no-trade{opacity:.7}
+.plan-candidate .mini-rank{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:900;font-size:10px;border:1px solid var(--line)}
+.plan-candidate strong{display:block;font-size:12px}
+.plan-candidate small{display:block;color:var(--muted);font-size:9px;margin-top:4px;line-height:1.45}
+.plan-candidate .plan-action{text-align:right;font-size:10px;font-weight:800}
+
+.journal-panel,.prediction-history,.performance-panel{margin-top:18px}
+.journal-form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.journal-form label{display:grid;gap:6px;color:var(--muted);font-size:10px}
+.journal-form textarea{resize:vertical;border:1px solid var(--line);background:#0c1118;color:var(--text);border-radius:11px;padding:11px;font:inherit;min-height:78px}
+.journal-wide{grid-column:1/-1}
+.journal-actions{display:flex!important;flex-direction:row;gap:8px;align-items:center}
+.journal-list,.history-list{display:grid;gap:9px;margin-top:18px}
+.journal-entry,.history-entry{padding:14px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.055)}
+.journal-entry-head,.history-entry-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.journal-entry-head strong,.history-entry-head strong{font-size:13px}
+.journal-entry-head span,.history-entry-head span{font-size:9px;color:var(--muted)}
+.journal-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
+.journal-metrics>div{padding:9px;border-radius:10px;background:#0a1017}
+.journal-metrics small{display:block;color:var(--muted);font-size:8px}
+.journal-metrics strong{display:block;margin-top:3px;font-size:12px}
+.journal-notes{margin-top:9px;color:#aeb9c8;font-size:10px;line-height:1.55}
+.journal-thumb{margin-top:10px;max-width:180px;border-radius:10px;border:1px solid var(--line);display:block}
+.rule-yes{color:var(--accent)}.rule-partial{color:var(--warning)}.rule-no{color:var(--danger)}
+
+.history-candidates{display:grid;gap:6px;margin-top:10px}
+.history-candidate{
+  display:grid;grid-template-columns:minmax(140px,1fr) 70px 70px 90px auto;
+  gap:8px;align-items:center;padding:9px;border-radius:10px;background:#0a1017
+}
+.history-candidate span{font-size:9px;color:var(--muted)}
+.history-candidate strong{font-size:11px}
+.history-outcome{font-size:9px;color:var(--accent)}
+.history-outcome.pending{color:var(--warning)}
+.mini-button{min-height:32px;padding:0 9px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:9px;font-weight:700}
+.mini-button:hover{border-color:#4b586a}
+
+.performance-lock{padding:22px;border:1px dashed var(--line);border-radius:15px;text-align:center}
+.performance-lock strong{display:block;font-size:18px}
+.performance-lock p{margin:8px auto 0;color:var(--muted);font-size:11px;line-height:1.6;max-width:560px}
+.performance-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.performance-card{padding:14px;border-radius:13px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.055)}
+.performance-card small{display:block;color:var(--muted);font-size:9px}
+.performance-card strong{display:block;margin-top:6px;font-size:20px;font-variant-numeric:tabular-nums}
+.rank-performance{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.rank-stat{padding:12px;border-radius:12px;background:#0a1017}
+.rank-stat small{display:block;color:var(--muted);font-size:9px}
+.rank-stat strong{display:block;margin-top:5px;font-size:14px}
+
+.outcome-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}
+.outcome-grid label{display:grid;gap:6px;color:var(--muted);font-size:10px}
+.form-error{padding:10px;border-radius:10px;background:var(--danger-soft);color:#ffb0b0;font-size:10px}
+.affordability-tag{display:inline-flex;margin-top:5px;padding:3px 7px;border-radius:999px;font-size:8px;font-weight:800}
+.affordability-ok{background:var(--accent-soft);color:var(--accent)}
+.affordability-no{background:var(--danger-soft);color:#ffaaaa}
+.affordability-unknown{background:rgba(255,255,255,.06);color:var(--muted)}
+
+.chart-legend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 0;color:var(--muted);font-size:9px}
+.chart-legend i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:4px}
+.legend-sma5{background:#79a9ff}.legend-sma20{background:#ffcf5a}.legend-volume{background:#657184}
+.sma5-line{stroke:#79a9ff;fill:none;stroke-width:2}
+.sma20-line{stroke:#ffcf5a;fill:none;stroke-width:2}
+.volume-bar{fill:#657184;opacity:.55}
+.price-separator{stroke:#26303e;stroke-width:1}
+
+@media(max-width:900px){
+  .daily-plan-summary{grid-template-columns:repeat(2,1fr)}
+  .journal-form{grid-template-columns:repeat(2,1fr)}
+  .performance-grid,.rank-performance{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:620px){
+  .plan-actions{justify-content:flex-start}
+  .daily-plan-summary{grid-template-columns:1fr 1fr}
+  .plan-candidate{grid-template-columns:34px 1fr 86px}
+  .plan-candidate .plan-reason{grid-column:2/4;grid-row:2}
+  .journal-form{grid-template-columns:1fr 1fr}
+  .journal-wide{grid-column:1/-1}
+  .journal-metrics{grid-template-columns:1fr 1fr}
+  .history-candidate{grid-template-columns:1fr 54px 54px}
+  .history-candidate .history-rank{display:none}
+  .history-candidate .history-action{grid-column:1/4}
+  .performance-grid,.rank-performance{grid-template-columns:1fr 1fr}
+}
