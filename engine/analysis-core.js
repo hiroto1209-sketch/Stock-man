@@ -98,6 +98,7 @@
     if(!source||typeof source!=="object")return "UNAVAILABLE";
     if(source.status==="DEMO")return "DEMO";
     if(source.status==="STALE")return "STALE";
+    if(!["DAILY","RECENT","MANUAL"].includes(source.status))return "UNAVAILABLE";
     const day=datePart(source.asOf);
     return ageDays(day,asOf)<=MAX_CALENDAR_AGE_DAYS?"DAILY":"STALE";
   }
@@ -125,7 +126,7 @@
   function analyzeCandidate(raw,market,asOf){
     const code=String(raw?.code||"").trim();
     if(!/^\d{4,5}$/.test(code))return null;
-    const candles=barsOf(raw.candles);
+    const candles=barsOf(raw.candles).filter(bar=>bar.time<=tokyoDate(asOf));
     const m=metrics(candles);
     const latest=candles.at(-1);
     const freshness=latest&&ageDays(latest.time,asOf)<=MAX_CALENDAR_AGE_DAYS?"DAILY":"STALE";
@@ -175,7 +176,7 @@
     if(!input||typeof input!=="object")throw new Error("Input must be an object");
     const asOf=options.now||input.asOf||new Date().toISOString();
     if(!Number.isFinite(Date.parse(asOf)))throw new Error("Invalid asOf");
-    const market=allowedRegimes.has(input.market?.status)?input.market.status:"UNKNOWN";
+    const market=allowedRegimes.has(input.market?.status)&&input.market?.verified===true?input.market.status:"UNKNOWN";
     const isPublic=Boolean(options.publicOutput);
     const redistributable=input.source?.redistributionPermitted===true&&
       /^https:\/\//.test(String(input.source?.licenseUrl||""));
