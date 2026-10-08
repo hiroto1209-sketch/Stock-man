@@ -100,6 +100,7 @@
     if(source.status==="STALE")return "STALE";
     if(!["DAILY","RECENT","MANUAL"].includes(source.status))return "UNAVAILABLE";
     const day=datePart(source.asOf);
+    if(day>tokyoDate(asOf))return "STALE";
     return ageDays(day,asOf)<=MAX_CALENDAR_AGE_DAYS?"DAILY":"STALE";
   }
   function scoreOf(m,catalysts,market){
