@@ -536,35 +536,46 @@ async function connectLiveData(showMessage = true) {
 }
 
 function mergeLivePayload(payload) {
-  if (!payload || !Array.isArray(payload.candidates) || !state.data) return;
-  const byCode = new Map(payload.candidates.map(item => [String(item.code).slice(0,4), item]));
+  if (!payload || !Array.isArray(payload.candidates) || !window.StockManEngine) return;
 
-  state.data.candidates = (state.data.candidates || []).map(candidate => {
-    const live = byCode.get(String(candidate.code).slice(0,4));
-    if (!live || !live.latest) return candidate;
-    return {
-      ...candidate,
-      price: live.latest.close,
-      changePct: live.latest.changePct,
-      candles: Array.isArray(live.candles) ? live.candles : candidate.candles,
-      marketMetrics: live.metrics || {},
-      freshness: live.freshness || payload.freshness || "DAILY",
-      dataUpdatedAt: (live.latest.date || payload.latestTradingDate) + "T15:30:00+09:00"
-    };
+  const names=new Map((state.data?.candidates||[]).map(c=>[String(c.code),String(c.name||c.code)]));
+  const asOf=payload.latestTradingDate
+    ? payload.latestTradingDate+"T15:30:00+09:00"
+    : payload.generatedAt;
+
+  const input={
+    asOf:payload.generatedAt||new Date().toISOString(),
+    source:{
+      status:payload.usableForNextDayDecision?"DAILY":"STALE",
+      asOf,
+      provider:"J-Quants V2 (PRIVATE)",
+      redistributionPermitted:false
+    },
+    market:{status:"UNKNOWN",verified:false,note:"海外市場・寄り前気配は未接続"},
+    candidates:payload.candidates
+      .filter(x=>Array.isArray(x.candles))
+      .map(x=>({
+        code:String(x.code),
+        name:names.get(String(x.code))||String(x.name||x.code),
+        candles:x.candles,
+        catalysts:[]
+      }))
+  };
+
+  const result=window.StockManEngine.analyze(input,{
+    now:new Date().toISOString(),publicOutput:false
   });
-
-  const status = payload.usableForNextDayDecision ? "DAILY" : "STALE";
-  state.data.meta.mode = payload.usableForNextDayDecision ? "LIVE DAILY" : "STALE DAILY";
-  state.data.meta.generatedAt = payload.generatedAt || state.data.meta.generatedAt;
-  state.data.meta.marketSession = "DAILY_CLOSE_DATA";
-
-  const sources = state.data.dataSources || [];
-  for (const source of sources) {
-    if (source.label === "株価" || source.label === "ローソク足") {
-      source.status = status;
-      source.note = "J-Quants " + (payload.latestTradingDate || "");
+  result.meta.mode=result.meta.mode==="AUTO_DAILY"&&payload.usableForNextDayDecision
+    ?"PRIVATE_DAILY":"STALE DAILY";
+  result.meta.snapshotType="PRIVATE_PERSONAL_ANALYSIS";
+  result.meta.disclaimer="個人向け日足。再配信禁止。場中の売買判断は証券アプリで現在値・板を確認してください。";
+  result.dataSources.forEach(s=>{
+    if(s.label==="株価"||s.label==="ローソク足"){
+      s.status=payload.usableForNextDayDecision?"DAILY":"STALE";
+      s.note="J-Quants 私的利用 "+String(payload.latestTradingDate||"");
     }
-  }
+  });
+  state.data=result;
 }
 
 function setConnectionState(label, message, tone) {
@@ -740,7 +751,9 @@ function gapPenalty(gapPct) {
 
 function adjustedTradeScore(candidate) {
   const gap = Number(state.gaps[candidate.code] ?? 0);
-  return clamp(Math.round(candidate.predictionScore - gapPenalty(gap)), 0, 100);
+  const engineScore=Number(candidate.tradeScore);
+  const base=Number.isFinite(engineScore) ? engineScore : Number(candidate.predictionScore);
+  return clamp(Math.round(base - gapPenalty(gap)), 0, 100);
 }
 
 function rankFromScore(score, gap = 0) {
@@ -788,15 +801,20 @@ function ageHours(iso) {
 }
 
 function freshnessLabel() {
-  if (!state.data) return { label: "UNKNOWN", tone: "stale" };
-  if (state.data.meta?.mode === "DEMO") return { label: "DEMO SNAPSHOT", tone: "demo" };
-  const hours = ageHours(state.data.meta?.generatedAt);
-  if (hours <= 1) return { label: "LIVE / RECENT", tone: "live" };
-  if (hours <= 12) return { label: "RECENT", tone: "recent" };
-  return { label: "STALE", tone: "stale" };
+  if (!state.data) return { label: "UNAVAILABLE", tone: "stale" };
+  const meta=state.data.meta||{},mode=String(meta.mode||"UNAVAILABLE");
+  if(mode==="DEMO")return {label:"DEMO",tone:"demo"};
+  if(mode==="UNAVAILABLE")return {label:"UNAVAILABLE",tone:"unavailable"};
+  if(mode.includes("STALE"))return {label:"STALE",tone:"stale"};
+  const observedAt=meta.dataAsOf || state.data.candidates?.map(x=>x.dataUpdatedAt).filter(Boolean).sort().at(-1);
+  if(!observedAt)return {label:"UNAVAILABLE",tone:"unavailable"};
+  const hours=ageHours(observedAt);
+  if(hours< -1)return {label:"INVALID DATE",tone:"stale"};
+  if(hours<=96)return {label:mode==="MANUAL_DAILY"?"MANUAL（日足）":"DAILY（日足）",tone:"daily"};
+  return {label:"STALE",tone:"stale"};
 }
 
-async function loadLocalMarketSource() {
+function loadLocalMarketSource() {
   try {
     return JSON.parse(localStorage.getItem(LOCAL_SOURCE_KEY) || "null");
   } catch { return null; }
@@ -840,7 +858,7 @@ async function loadSnapshot(force = false) {
     state.fallbackUsed=true;
   } finally {
     const local=latestLocalAnalysis();
-    if(local)state.data=local;
+    if(local){state.data=local;state.fallbackUsed=false;}
     if(els.refreshButton)els.refreshButton.disabled=false;
     renderAll();
   }
@@ -864,7 +882,7 @@ function renderMeta() {
   const freshness = freshnessLabel();
 
   els.modeBadge.textContent = meta.mode || "UNKNOWN";
-  els.modeBadge.className = "status-badge " + (String(meta.mode).includes("DEMO") ? "status-demo" : String(meta.mode).includes("STALE") ? "status-stale" : "status-data");
+  els.modeBadge.className = "status-badge " + (String(meta.mode).includes("DEMO") ? "status-demo" : String(meta.mode).includes("STALE") || String(meta.mode).includes("UNAVAILABLE") ? "status-stale" : "status-data");
   els.marketSession.textContent = safeText(meta.marketSession, "—");
   els.updatedAt.textContent = formatDateTime(meta.generatedAt);
   els.nextReviewAt.textContent = formatDateTime(meta.nextReviewAt);
@@ -875,7 +893,7 @@ function renderMeta() {
   els.freshnessBanner.classList.toggle("hidden", !showBanner);
 
   if (state.fallbackUsed) {
-    els.freshnessBanner.textContent = "Snapshot fetch failed. Embedded fallback data is displayed. Do not use it as live market data.";
+    els.freshnessBanner.textContent = "市場データの読み込みに失敗しました。実取引向けの情報はありません。";
   } else if (meta.mode === "DEMO") {
     els.freshnessBanner.textContent = "DEMO DATA — これはライブ市場データではありません。UI・分析ロジック検証用スナップショットです。";
   } else if (meta.mode === "UNAVAILABLE") {
@@ -1162,7 +1180,7 @@ function dataExecutionStatus() {
   if (mode.includes("STALE") || freshness.tone === "stale" || (state.livePayload && !state.livePayload.usableForNextDayDecision)) {
     return { ok:false, label:"古いデータ・見送り", reason:"データが古いため、実取引候補にはしません。" };
   }
-  if (state.livePayload?.usableForNextDayDecision || mode.includes("LIVE DAILY") || mode.includes("PRIVATE_DAILY")) {
+  if (state.livePayload?.usableForNextDayDecision && mode==="PRIVATE_DAILY") {
     return { ok:true, label:"日足確認済み", reason:"日足は確認済み。発注前に証券アプリで現在値・板を確認してください。" };
   }
   return { ok:false, label:"日足のみ・発注前確認", reason:"これは日足の監視分析です。現在値、板、材料、許容損失を証券会社で別途確認してください。" };
